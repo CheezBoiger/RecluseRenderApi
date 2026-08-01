@@ -1,0 +1,28 @@
+#
+cmake_minimum_required(VERSION 3.5)
+project("RecluseRenderApi")
+
+set (RECLUSE_RENDER_API_NAME "RecluseRenderApi")
+set (RECLUSE_RENDER_API_MINOR 0)
+set (RECLUSE_RENDER_API_MAJOR 0)
+set (RECLUSE_RENDER_API_PATCH 0)
+
+set (RECLUSE_VERSION_STRING "v${RECLUSE_RENDER_API_MAJOR}.${RECLUSE_RENDER_API_MINOR}.${RECLUSE_RENDER_API_PATCH}")
+
+set (RECLUSE_INCLUDE_PATH ${CMAKE_SOURCE_DIR}/Include)
+set (RECLUSE_SOURCE_PATH  ${CMAKE_SOURCE_DIR}/Source)
+
+set (RECLUSE_RENDER_API_FILES )
+set (RECLUSE_RENDER_API_INCLUDES ${RECLUSE_INCLUDE_PATH} )
+set (RECLUSE_RENDER_API_LIBS )
+
+include (${CMAKE_SOURCE_DIR}/CMake/Common.cmake)
+
+add_library(${RECLUSE_RENDER_API_NAME} SHARED ${RECLUSE_RENDER_API_FILES})
+target_include_directories(${RECLUSE_RENDER_API_NAME} PUBLIC ${RECLUSE_RENDER_API_INCLUDES} 
+	RecluseFramework/Include
+	RecluseFramework)
+target_link_libraries(${RECLUSE_RENDER_API_NAME} ${RECLUSE_RENDER_API_LIBS} RecluseFramework)
+
+# Mirror the physical folder structure starting from the source directory
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${RECLUSE_RENDER_API_FILES})
