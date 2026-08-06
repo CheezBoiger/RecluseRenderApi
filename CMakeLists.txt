@@ -16,13 +16,21 @@ set (RECLUSE_RENDER_API_FILES )
 set (RECLUSE_RENDER_API_INCLUDES ${RECLUSE_INCLUDE_PATH} )
 set (RECLUSE_RENDER_API_LIBS )
 
-include (${CMAKE_SOURCE_DIR}/CMake/Common.cmake)
+option(ENABLE_TESTS "Builds Unit tests for the framework" OFF)
+
+set (RECLUSE_FRAMEWORK_PATH Path/To/Framework)
+set (RECLUSE_FRAMEWORK_LIB_PATH Path/To/Framework/Lib)
+
+include (${CMAKE_CURRENT_SOURCE_DIR}/CMake/Common.cmake)
 
 add_library(${RECLUSE_RENDER_API_NAME} SHARED ${RECLUSE_RENDER_API_FILES})
 target_include_directories(${RECLUSE_RENDER_API_NAME} PUBLIC ${RECLUSE_RENDER_API_INCLUDES} 
-	RecluseFramework/Include
-	RecluseFramework)
-target_link_libraries(${RECLUSE_RENDER_API_NAME} ${RECLUSE_RENDER_API_LIBS} RecluseFramework)
+	${RECLUSE_FRAMEWORK_PATH}/Include)
+target_link_libraries(${RECLUSE_RENDER_API_NAME} ${RECLUSE_RENDER_API_LIBS} ${RECLUSE_FRAMEWORK_LIB_PATH}/RecluseFramework.lib)
 
 # Mirror the physical folder structure starting from the source directory
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${RECLUSE_RENDER_API_FILES})
+
+if (ENABLE_TESTS)
+	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Test)
+endif()
