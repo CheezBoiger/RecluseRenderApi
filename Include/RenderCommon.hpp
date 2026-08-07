@@ -9,6 +9,11 @@
 namespace Recluse {
 namespace RenderApi {
 
+typedef U32 PipelineId;
+typedef U32 ResourceId;
+typedef U32 ResourceViewId;
+typedef U32 SamplerId;
+
 enum Api
 {
     Api_Unknown,
@@ -23,29 +28,6 @@ enum Api
 
 struct InstanceDescription
 {
-};
-
-
-enum CommandType
-{
-    CommandType_NoOp,
-    CommandType_Begin,
-    CommandType_End,
-};
-
-
-struct Command
-{
-    CommandType type;
-};
-
-
-struct DrawIndexedInstancedCommand
-{
-    CommandType type;
-    U32 indexCount;
-    U32 startIndex;
-    U32 instanceCount;
 };
 } // RenderApi
 } // Recluse

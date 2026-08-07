@@ -17,7 +17,7 @@ public:
     RecluseResult enqueue(U32 numLists, const CommandList** commandlists);
 
     // Wait for device to be waited on
-    RecluseResult waitIdle();
+    RecluseResult wait();
 
 private:
     

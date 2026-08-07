@@ -16,6 +16,8 @@ public:
     typedef U32 Id;
     static const Id kBadId = ~0;
 
+    enum CommandInstance { Instance_Static, Instance_Dynamic };
+
     CommandList();
     CommandList(const CommandList&);
     CommandList(const CommandList&&);
@@ -37,10 +39,14 @@ public:
 private:
     // Render command list id.
     Id m_id;
+
+    // This Instance
+    CommandInstance instance;
+
     // 8 Megabytes is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
     // to reduce these calls. (batching would be highly beneficial.)
-    LinearScratchMemory<R_MB(8), true> m_commandAllocator;
+    LinearScratchMemory<R_MB(1), true> m_commandAllocator;
 };
 } // RenderApi
 } // Recluse

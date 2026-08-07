@@ -3,6 +3,8 @@
 
 #include <Recluse/Threading/Threading.hpp>
 
+#include "CommandOps.hpp"
+
 namespace Recluse {
 namespace RenderApi {
 
@@ -24,7 +26,7 @@ CommandList::CommandList()
 
 void CommandList::begin()
 {
-    Command* command = m_commandAllocator.allocate<Command>();
+    BeginCommand* command = m_commandAllocator.allocate<BeginCommand>();
     command->type = CommandType_Begin;
 }
 
@@ -33,6 +35,15 @@ void CommandList::end()
 {
     Command* command = m_commandAllocator.allocate<Command>();
     command->type = CommandType_End;
+}
+
+
+void CommandList::dispatch(U32 x, U32 y, U32 z)
+{
+    DispatchCommand* command = m_commandAllocator.allocate<DispatchCommand>();
+    command->x = x;
+    command->y = y;
+    command->z = z;
 }
 
 
