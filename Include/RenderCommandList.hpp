@@ -40,7 +40,7 @@ private:
     // 8 Megabytes is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
     // to reduce these calls. (batching would be highly beneficial.)
-    LinearScratchMemory<R_MB(8), 4096,  true> m_commandAllocator;
+    LinearScratchMemory<R_MB(8), true> m_commandAllocator;
 };
 } // RenderApi
 } // Recluse

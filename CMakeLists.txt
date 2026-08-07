@@ -18,15 +18,16 @@ set (RECLUSE_RENDER_API_LIBS )
 
 option(ENABLE_TESTS "Builds Unit tests for the framework" OFF)
 
-set (RECLUSE_FRAMEWORK_PATH Path/To/Framework)
-set (RECLUSE_FRAMEWORK_LIB_PATH Path/To/Framework/Lib)
+set (RECLUSE_FRAMEWORK_PATH "" CACHE STRING "Path/To/Framework")
+set (RECLUSE_FRAMEWORK_BUILD_PATH "" CACHE STRING "Path/To/Framework/Build")
 
 include (${CMAKE_CURRENT_SOURCE_DIR}/CMake/Common.cmake)
 
 add_library(${RECLUSE_RENDER_API_NAME} SHARED ${RECLUSE_RENDER_API_FILES})
 target_include_directories(${RECLUSE_RENDER_API_NAME} PUBLIC ${RECLUSE_RENDER_API_INCLUDES} 
-	${RECLUSE_FRAMEWORK_PATH}/Include)
-target_link_libraries(${RECLUSE_RENDER_API_NAME} ${RECLUSE_RENDER_API_LIBS} ${RECLUSE_FRAMEWORK_LIB_PATH}/RecluseFramework.lib)
+	${RECLUSE_FRAMEWORK_PATH}/Include
+	${RECLUSE_FRAMEWORK_BUILD_PATH}/Include/RecluseFramework)
+target_link_libraries(${RECLUSE_RENDER_API_NAME} ${RECLUSE_RENDER_API_LIBS} ${RECLUSE_FRAMEWORK_BUILD_PATH}/Lib/RecluseFramework.lib)
 
 # Mirror the physical folder structure starting from the source directory
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${RECLUSE_RENDER_API_FILES})
