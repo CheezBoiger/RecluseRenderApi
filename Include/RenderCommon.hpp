@@ -1,6 +1,6 @@
 // Recluse Render Api.
-#ifndef RECLUSE_RENDER_API_INSTANCE_HPP
-#define RECLUSE_RENDER_API_INSTANCE_HPP
+#ifndef RECLUSE_RENDER_API_COMMON_HPP
+#define RECLUSE_RENDER_API_COMMON_HPP
 
 #pragma once
 
@@ -31,4 +31,4 @@ struct InstanceDescription
 };
 } // RenderApi
 } // Recluse
-#endif // RECLUSE_RENDER_API_INSTANCE_HPP
+#endif // RECLUSE_RENDER_API_COMMON_HPP

@@ -10,7 +10,7 @@
 
 namespace Recluse {
 namespace RenderApi {
-class IQueue
+class Queue
 {
 public:
     // Process the render command list.

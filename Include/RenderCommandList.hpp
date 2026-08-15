@@ -10,6 +10,9 @@
 
 namespace Recluse {
 namespace RenderApi {
+// CommandList is actually a recorder, which handles command list generation from the application.
+// This list is then processed by specific platforms without needing to do too many 
+// vtable lookups per drawcall.
 class CommandList
 {
 public:
