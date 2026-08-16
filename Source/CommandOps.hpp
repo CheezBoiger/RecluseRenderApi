@@ -11,7 +11,7 @@ namespace RenderApi {
 
 enum CommandType
 {
-    CommandType_NoOp,
+    CommandType_NoOp = 0,
     CommandType_Begin,
     CommandType_End,
     CommandType_DrawIndexedInstanced,
@@ -24,6 +24,7 @@ enum CommandType
     CommandType_CopySubresource,
     CommandType_BeginRenderPass,
     CommandType_EndRenderPass,
+    CommandTType_BarrierTransition,
 
     CommandType_DispatchMesh,
     CommandType_DispatchRays,
@@ -49,6 +50,13 @@ struct BeginCommand
 };
 
 
+struct BindPipelineCommand
+{
+    CommandType     type;
+    PipelineId      pipeline;
+};
+
+
 struct DrawIndexedInstancedCommand
 {
     CommandType     type;
@@ -64,6 +72,21 @@ struct DispatchCommand
     U32             x;
     U32             y;
     U32             z;
+};
+
+
+struct BindResourceTableCommand
+{
+    CommandType     type;
+    UPtr            resourceTablePtr;
+    uint            sizeBytes;
+};
+
+struct BindSamplerTableCommand
+{
+    CommandType     type;
+    UPtr            samplerTablePtr;
+    uint            sizeBytes;
 };
 } // RenderApi
 } // Recluse

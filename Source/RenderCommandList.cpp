@@ -41,15 +41,40 @@ void CommandList::end()
 void CommandList::dispatch(U32 x, U32 y, U32 z)
 {
     DispatchCommand* command = m_commandAllocator.allocate<DispatchCommand>();
+    command->type = CommandType_Dispatch;
     command->x = x;
     command->y = y;
     command->z = z;
 }
 
 
+void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
+{
+    BindResourceTableCommand* command = m_commandAllocator.allocate<BindResourceTableCommand>();
+    command->type = CommandType_BindResourceTable;
+    command->resourceTablePtr = reinterpret_cast<UPtr>(resourceTablePtr);
+    command->sizeBytes = sizeBytes;
+}
+
+void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
+{
+    BindSamplerTableCommand* command = m_commandAllocator.allocate<BindSamplerTableCommand>();
+    command->type = CommandType_BindSamplerTable;
+    command->samplerTablePtr = reinterpret_cast<UPtr>(samplerTablePtr);
+    command->sizeBytes = sizeBytes;
+}
+
+void CommandList::bindPipeline(PipelineId pipeline)
+{
+    BindPipelineCommand* command = m_commandAllocator.allocate<BindPipelineCommand>();
+    command->type = CommandType_BindPipeline;
+    command->pipeline = pipeline;
+}
+
 void CommandList::reset()
 {
     m_commandAllocator.clear();
+    m_resourceAllocator.clear();
 }
 } // RenderApi
 } // Recluse

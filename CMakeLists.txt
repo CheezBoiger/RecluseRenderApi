@@ -22,6 +22,7 @@ set (RECLUSE_FRAMEWORK_PATH "" CACHE STRING "Path/To/Framework")
 set (RECLUSE_FRAMEWORK_BUILD_PATH "" CACHE STRING "Path/To/Framework/Build")
 
 include (${CMAKE_CURRENT_SOURCE_DIR}/CMake/Common.cmake)
+include (${RECLUSE_FRAMEWORK_PATH}/Build/CMake/GenerateExports.cmake)
 
 add_library(${RECLUSE_RENDER_API_NAME} SHARED ${RECLUSE_RENDER_API_FILES})
 target_include_directories(${RECLUSE_RENDER_API_NAME} PUBLIC ${RECLUSE_RENDER_API_INCLUDES} 
@@ -31,6 +32,8 @@ target_link_libraries(${RECLUSE_RENDER_API_NAME} ${RECLUSE_RENDER_API_LIBS} ${RE
 
 # Mirror the physical folder structure starting from the source directory
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${RECLUSE_RENDER_API_FILES})
+
+ExportThisLibrary(${RECLUSE_RENDER_API_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/Recluse/Build)
 
 if (ENABLE_TESTS)
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Test)

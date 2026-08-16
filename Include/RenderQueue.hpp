@@ -14,10 +14,10 @@ class Queue
 {
 public:
     // Process the render command list.
-    RecluseResult enqueue(U32 numLists, const CommandList** commandlists);
+    virtual RecluseResult process(U32 numLists, const CommandList** commandlists) = 0;
 
     // Wait for device to be waited on
-    RecluseResult wait();
+    virtual RecluseResult wait() = 0;
 
 private:
     
