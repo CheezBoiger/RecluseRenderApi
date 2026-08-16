@@ -9,57 +9,64 @@ namespace Recluse {
 namespace RenderApi {
 
 
-enum CommandType
+// Command opcodes are the opcodes that are used to identify the command that is being executed.
+// They should be used to help identify the necessary implementation for the Api.
+enum CommandOpcode
 {
-    CommandType_NoOp = 0,
-    CommandType_Begin,
-    CommandType_End,
-    CommandType_DrawIndexedInstanced,
-    CommandType_DrawInstanced,
-    CommandType_BindPipeline,
-    CommandType_BindResourceTable,
-    CommandType_BindSamplerTable,
-    CommandType_Dispatch,
-    CommandType_CopyResource,
-    CommandType_CopySubresource,
-    CommandType_BeginRenderPass,
-    CommandType_EndRenderPass,
-    CommandTType_BarrierTransition,
+    CommandOpcode_NoOp = 0,
+    CommandOpcode_Begin,
+    CommandOpcode_End,
+    CommandOpcode_DrawIndexedInstanced,
+    CommandOpcode_DrawInstanced,
 
-    CommandType_DispatchMesh,
-    CommandType_DispatchRays,
+    CommandOpcode_BindPipeline,
+    CommandOpcode_BindResourceTable,
+    CommandOpcode_BindSamplerTable,
+    CommandOpcode_BindRenderTargets,
 
-    CommandType_DrawIndexedInstancedIndirect,
-    CommandType_DrawInstancedIndirect,
-    CommandType_DispatchIndirect,
-    CommandType_DispatchMeshIndirect,
+    CommandOpcode_Dispatch,
+    CommandOpcode_CopyResource,
+    CommandOpcode_CopySubresource,
+    CommandOpcode_BeginRenderPass,
+    CommandOpcode_EndRenderPass,
 
-    CommandType_Count,
+    CommandOpcode_BarrierTransition,
+    CommandOpcode_BarrierAliasing,
+
+    CommandOpcode_DispatchMesh,
+    CommandOpcode_DispatchRays,
+
+    CommandOpcode_DrawIndexedInstancedIndirect,
+    CommandOpcode_DrawInstancedIndirect,
+    CommandOpcode_DispatchIndirect,
+    CommandOpcode_DispatchMeshIndirect,
+
+    CommandOpcode_Count,
 };
 
 
 struct Command
 {
-    CommandType     type;
+    CommandOpcode     type;
 };
 
 
 struct BeginCommand
 {
-    CommandType     type;
+    CommandOpcode     type;
 };
 
 
 struct BindPipelineCommand
 {
-    CommandType     type;
+    CommandOpcode     type;
     PipelineId      pipeline;
 };
 
 
 struct DrawIndexedInstancedCommand
 {
-    CommandType     type;
+    CommandOpcode     type;
     U32             indexCount;
     U32             startIndex;
     U32             instanceCount;
@@ -68,7 +75,7 @@ struct DrawIndexedInstancedCommand
 
 struct DispatchCommand
 {
-    CommandType     type;
+    CommandOpcode     type;
     U32             x;
     U32             y;
     U32             z;
@@ -77,14 +84,14 @@ struct DispatchCommand
 
 struct BindResourceTableCommand
 {
-    CommandType     type;
+    CommandOpcode     type;
     UPtr            resourceTablePtr;
     uint            sizeBytes;
 };
 
 struct BindSamplerTableCommand
 {
-    CommandType     type;
+    CommandOpcode     type;
     UPtr            samplerTablePtr;
     uint            sizeBytes;
 };

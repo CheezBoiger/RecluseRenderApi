@@ -113,6 +113,23 @@ public:
     
 };
 
+enum ResourceState
+{
+    ResourceState_Unknown,
+    ResourceState_VertexBuffer,
+    ResourceState_IndexBuffer,
+    ResourceState_RenderTarget,
+    ResourceState_ShaderResource,
+    ResourceState_ConstantBuffer,
+    ResourceState_TransferDestination,
+    ResourceState_CopyDestination = ResourceState_TransferDestination,
+    ResourceState_TransferSource,
+    ResourceState_CopySource = ResourceState_TransferSource,
+    ResourceState_IndirectBuffer,
+    ResourceState_DepthStencil,
+    ResourceState_UnorderedAccess,
+};
+
 enum ResourceViewType
 {
     ResourceViewType_Unknown,
