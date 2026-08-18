@@ -4,7 +4,7 @@
 #pragma once 
 
 #include <Recluse/Types.hpp>
-#include <Recluse/RenderApi/RenderCommon.hpp>
+#include <Recluse/RenderApi/Common.hpp>
 
 namespace Recluse {
 namespace RenderApi {

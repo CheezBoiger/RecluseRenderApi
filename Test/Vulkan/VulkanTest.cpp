@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include <Recluse/RenderApi/RenderInstance.hpp>
+#include <Recluse/RenderApi/Context.hpp>
 
 using namespace std;
 

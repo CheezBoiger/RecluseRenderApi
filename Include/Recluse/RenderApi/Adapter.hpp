@@ -2,7 +2,7 @@
 #define RECLUSE_RENDER_API_RENDER_ADAPTER_HPP
 #pragma once
 
-#include <Recluse/RenderApi/RenderCommon.hpp>
+#include <Recluse/RenderApi/Common.hpp>
 
 namespace Recluse {
 namespace RenderApi {

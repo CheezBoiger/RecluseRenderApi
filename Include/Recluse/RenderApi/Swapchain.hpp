@@ -5,8 +5,8 @@
 
 #include <Recluse/Types.hpp>
 
-#include <Recluse/RenderApi/RenderCommon.hpp>
-#include <Recluse/RenderApi/RenderQueue.hpp>
+#include <Recluse/RenderApi/Common.hpp>
+#include <Recluse/RenderApi/Queue.hpp>
 
 namespace Recluse {
 namespace RenderApi {

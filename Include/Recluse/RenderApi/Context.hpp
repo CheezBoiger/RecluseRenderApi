@@ -3,9 +3,10 @@
 
 #pragma once
 
-#include "RenderCommon.hpp"
+#include <Recluse/RenderApi/Common.hpp>
+#include <Recluse/RenderApi/Adapter.hpp>
 
-#include <Recluse/RenderApi/RenderAdapter.hpp>
+#include <RecluseRenderApi_exports.hpp>
 
 namespace Recluse {
 namespace RenderApi {
@@ -14,7 +15,7 @@ class Adapter;
 
 // Context is the starting point for the render api. It is intented to 
 // be used to create the render api, and enumerate adapters for the given api.
-class Context
+class RecluseRenderApi_PUBLIC_API Context
 {
 public:
 
@@ -26,7 +27,7 @@ public:
     };
 
     // Create an instance of a context with the given api, returns nullptr if the instance doesn't exist, or not supported.
-    static Context* create(Api api, const Description& desc = Description());
+    static Context* create(Api api, const Description& description = Description());
     static ResultCode free(Context* context);
 
     // Enumerate the adapter information for the given api, returns the number of adapters enumerated.

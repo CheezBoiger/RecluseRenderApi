@@ -1,5 +1,5 @@
 //
-#include <Recluse/RenderApi/RenderCommandList.hpp>
+#include <Recluse/RenderApi/CommandList.hpp>
 
 #include <Recluse/Threading/Threading.hpp>
 

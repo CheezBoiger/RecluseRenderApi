@@ -3,9 +3,9 @@
 
 #include <Recluse/Types.hpp>
 
-#include <Recluse/RenderApi/RenderCommon.hpp>
-#include <Recluse/RenderApi/RenderSwapchain.hpp>
-#include <Recluse/RenderApi/RenderPipeline.hpp>
+#include <Recluse/RenderApi/Common.hpp>
+#include <Recluse/RenderApi/Swapchain.hpp>
+#include <Recluse/RenderApi/Pipeline.hpp>
 
 namespace Recluse {
 namespace RenderApi {

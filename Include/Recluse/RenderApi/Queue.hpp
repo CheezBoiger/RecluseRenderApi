@@ -3,8 +3,8 @@
 
 #pragma once 
 
-#include <Recluse/RenderApi/RenderCommon.hpp>
-#include <Recluse/RenderApi/RenderCommandList.hpp>
+#include <Recluse/RenderApi/Common.hpp>
+#include <Recluse/RenderApi/CommandList.hpp>
 
 #include <Recluse/Types.hpp>
 
