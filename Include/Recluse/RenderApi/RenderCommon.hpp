@@ -53,9 +53,12 @@ enum ResourceType
     ResourceType_Unknown,
     ResourceType_Buffer,
     ResourceType_Texture1D,
+    ResourceType_Texture1DArray,
     ResourceType_Texture2D,
+    ResourceType_Texture2DArray,
     ResourceType_Texture3D,
     ResourceType_TextureCube,
+    ResourceType_TextureCubeArray,
 };
 
 
@@ -159,6 +162,21 @@ struct ResourceViewDescription
     uint                    depthOrArraySize;
 };
 
+enum QueueTypeFlag
+{
+    QueueTypeFlag_Unknown,
+    QueueTypeFlag_Graphics = 1 << 0,
+    QueueTypeFlag_Compute = 1 << 1,
+    QueueTypeFlag_Copy = 1 << 2,
+    QueueTypeFlag_Direct = (QueueTypeFlag_Compute | QueueTypeFlag_Copy | QueueTypeFlag_Graphics),
+};
+
+typedef u32 QueueTypeFlags;
+
+struct QueueCreateDescription
+{
+    QueueTypeFlags typeFlags = QueueTypeFlag_Direct;
+};
 } // RenderApi
 } // Recluse
 #endif // RECLUSE_RENDER_API_COMMON_HPP

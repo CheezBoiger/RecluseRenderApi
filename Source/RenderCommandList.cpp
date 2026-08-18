@@ -1,9 +1,9 @@
 //
-#include <RenderCommandList.hpp>
+#include <Recluse/RenderApi/RenderCommandList.hpp>
 
 #include <Recluse/Threading/Threading.hpp>
 
-#include "CommandOps.hpp"
+#include "Shared/CommandOps.hpp"
 
 namespace Recluse {
 namespace RenderApi {
@@ -27,21 +27,21 @@ CommandList::CommandList()
 void CommandList::begin()
 {
     BeginCommand* command = m_commandAllocator.allocate<BeginCommand>();
-    command->type = CommandType_Begin;
+    command->type = CommandOpcode_Begin;
 }
 
 
 void CommandList::end()
 {
     Command* command = m_commandAllocator.allocate<Command>();
-    command->type = CommandType_End;
+    command->type = CommandOpcode_End;
 }
 
 
 void CommandList::dispatch(U32 x, U32 y, U32 z)
 {
     DispatchCommand* command = m_commandAllocator.allocate<DispatchCommand>();
-    command->type = CommandType_Dispatch;
+    command->type = CommandOpcode_Dispatch;
     command->x = x;
     command->y = y;
     command->z = z;
@@ -51,7 +51,7 @@ void CommandList::dispatch(U32 x, U32 y, U32 z)
 void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
 {
     BindResourceTableCommand* command = m_commandAllocator.allocate<BindResourceTableCommand>();
-    command->type = CommandType_BindResourceTable;
+    command->type = CommandOpcode_BindResourceTable;
     command->resourceTablePtr = reinterpret_cast<UPtr>(resourceTablePtr);
     command->sizeBytes = sizeBytes;
 }
@@ -59,7 +59,7 @@ void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
 void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
 {
     BindSamplerTableCommand* command = m_commandAllocator.allocate<BindSamplerTableCommand>();
-    command->type = CommandType_BindSamplerTable;
+    command->type = CommandOpcode_BindSamplerTable;
     command->samplerTablePtr = reinterpret_cast<UPtr>(samplerTablePtr);
     command->sizeBytes = sizeBytes;
 }
@@ -67,7 +67,7 @@ void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
 void CommandList::bindPipeline(PipelineId pipeline)
 {
     BindPipelineCommand* command = m_commandAllocator.allocate<BindPipelineCommand>();
-    command->type = CommandType_BindPipeline;
+    command->type = CommandOpcode_BindPipeline;
     command->pipeline = pipeline;
 }
 

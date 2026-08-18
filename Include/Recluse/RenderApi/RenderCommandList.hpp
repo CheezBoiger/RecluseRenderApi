@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <RenderCommon.hpp>
+#include <Recluse/RenderApi/RenderCommon.hpp>
 
 #include <Recluse/Types.hpp>
 #include <Recluse/Memory/LinearScratchMemory.hpp>

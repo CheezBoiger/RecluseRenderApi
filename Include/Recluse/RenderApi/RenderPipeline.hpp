@@ -2,8 +2,9 @@
 #define RECLUSE_RENDER_API_PIPELINE_HPP
 
 #pragma once 
+
 #include <Recluse/Types.hpp>
-#include "RenderCommon.hpp"
+#include <Recluse/RenderApi/RenderCommon.hpp>
 
 namespace Recluse {
 namespace RenderApi {

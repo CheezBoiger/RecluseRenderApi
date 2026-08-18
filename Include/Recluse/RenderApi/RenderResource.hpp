@@ -5,7 +5,7 @@
 
 #include <Recluse/Types.hpp>
 
-#include "RenderCommon.hpp"
+#include <Recluse/RenderApi/RenderCommon.hpp>
 
 namespace Recluse {
 namespace RenderApi {
