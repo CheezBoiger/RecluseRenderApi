@@ -11,18 +11,19 @@ namespace RenderApi {
 
 typedef U32 PipelineId;
 typedef U32 ResourceId;
-typedef U32 ResourceViewId;
 typedef U32 SamplerId;
+
+typedef U64 ResourceViewId;
 
 enum Api
 {
-    Api_Unknown,
-    Api_Direct3D11,
-    Api_Direct3D12,
-    Api_Vulkan,
-    Api_OpenGL,
-    Api_SoftwareRaster,
-    Api_SoftwareRaytrace,
+    Unknown,
+    Direct3D11,
+    Direct3D12,
+    Vulkan,
+    OpenGL,
+    SoftwareRaster,
+    SoftwareRaytrace,
 };
 
 
@@ -162,20 +163,20 @@ struct ResourceViewDescription
     uint                    depthOrArraySize;
 };
 
-enum QueueTypeFlag
+enum CommandTypeFlag
 {
-    QueueTypeFlag_Unknown,
-    QueueTypeFlag_Graphics = 1 << 0,
-    QueueTypeFlag_Compute = 1 << 1,
-    QueueTypeFlag_Copy = 1 << 2,
-    QueueTypeFlag_Direct = (QueueTypeFlag_Compute | QueueTypeFlag_Copy | QueueTypeFlag_Graphics),
+    CommandTypeFlag_Unknown,
+    CommandTypeFlag_Graphics = 1 << 0,
+    CommandTypeFlag_Compute = 1 << 1,
+    CommandTypeFlag_Copy = 1 << 2,
+    CommandTypeFlag_Direct = (CommandTypeFlag_Compute | CommandTypeFlag_Copy | CommandTypeFlag_Graphics),
 };
 
-typedef u32 QueueTypeFlags;
+typedef u32 CommandTypeFlags;
 
 struct QueueCreateDescription
 {
-    QueueTypeFlags typeFlags = QueueTypeFlag_Direct;
+    CommandTypeFlags typeFlags = CommandTypeFlag_Direct;
 };
 } // RenderApi
 } // Recluse

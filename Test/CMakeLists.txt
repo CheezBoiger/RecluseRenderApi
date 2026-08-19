@@ -12,3 +12,8 @@ target_include_directories(${RECLUSE_TEST_NAME} PUBLIC ${RECLUSE_RENDER_API_INCL
 	${RECLUSE_FRAMEWORK_PATH}/Include
 	${RECLUSE_FRAMEWORK_BUILD_PATH}/Include/RecluseFramework
 	${CMAKE_SOURCE_DIR}/Recluse/Build/Include/RecluseRenderApi)
+	
+target_link_libraries(${RECLUSE_TEST_NAME} PUBLIC 
+	${RECLUSE_BUILD_PATH}/Lib/RecluseRenderApi.lib
+	${RECLUSE_FRAMEWORK_BUILD_PATH}/Lib/RecluseFramework.lib
+	${RECLUSE_RENDER_API_LIBS})

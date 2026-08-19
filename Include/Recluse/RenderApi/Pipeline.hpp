@@ -6,6 +6,8 @@
 #include <Recluse/Types.hpp>
 #include <Recluse/RenderApi/Common.hpp>
 
+#include <vector>
+
 namespace Recluse {
 namespace RenderApi {
 
@@ -33,7 +35,28 @@ struct PipelineDescription
     ShaderDescription computeShader;
     ShaderDescription meshShader;
     ShaderDescription raytraceShader;
-    Bool allowCaching;
+};
+
+
+class Pipeline
+{
+public:
+    struct StreamChunk
+    {
+        std::vector<u8> bytecode;
+    };
+
+    static const PipelineId kBadId = ~0;
+
+    Pipeline(PipelineId id = kBadId) : m_id(id) { }
+    virtual ~Pipeline() { }
+
+    PipelineId getId() const { return m_id; }
+
+    virtual ResultCode cache(StreamChunk* chunk) = 0;
+
+private:
+    PipelineId m_id;
 };
 } // RenderApi
 } // Recluse

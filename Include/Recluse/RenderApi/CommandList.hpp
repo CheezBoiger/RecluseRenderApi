@@ -13,38 +13,50 @@
 namespace Recluse {
 namespace RenderApi {
 
+class Device;
+class Pipeline;
+
+// Chunk defines the base and size of a chunk of commands.
+struct CommandStreamChunk
+{
+    UPtr baseAddress = 0;
+    U32  sizeBytes = 0;
+};
+
 // CommandList is actually a recorder, which handles command list generation from the application.
 // This list is then processed by specific platforms without needing to do too many 
 // vtable lookups per drawcall.
+// The command list is not thread safe, and should be reset after it is submitted to the device for execution.
 class RecluseRenderApi_PUBLIC_API CommandList
 {
 public:
+
     typedef U32 Id;
     static const Id kBadId = ~0;
 
-    enum CommandInstance { Instance_Static, Instance_Dynamic };
+    enum CommandInstance { Primary, Bundle };
 
     CommandList();
-    CommandList(const CommandList&);
-    CommandList(const CommandList&&);
 
     void begin();
     void end();
 
-    void drawIndexedInstanced();
-    void drawInstanced();
+    void drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance);
+    void drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance);
     void dispatch(U32 x, U32 y, U32 z);
 
     // Bind render targets to the command list. This will bind the render targets to the command list, and will also bind the depth stencil if provided.
-    void bindRenderTargets(ResourceViewId* renderTargets, U32 numRenderTargets, ResourceViewId depthStencil);
+    void bindRenderTargets(ResourceViewId* renderTargets, U32 numRenderTargets, ResourceViewId depthStencil = 0);
 
     // Begin a render pass. This will begin a render pass, and will also bind the render targets and depth stencil if provided.
     void beginRenderPass();
     void endRenderPass();
 
-    void bindPipeline(PipelineId pipeline);
+    void bindPipeline(Pipeline* pipeline);
     void bindResourceTable(void* resourceTablePtr, uint sizeBytes); // Binds a resource table to the command list.
     void bindSamplerTable(void* samplerTablePtr, uint sizeBytes);  // Binds a sampler table to the command list.
+
+    void executeBundles(CommandList** bundles, U32 numBundles);
 
     ResourceViewId allocateConstantBuffer(void* constBufData, U32 size);
     
@@ -71,22 +83,29 @@ public:
 
     Id getId() const { return m_id; }
 
+    // Gets the stream chunk to process. This is the raw bytes of the stream consisting of 
+    // all commands that have been recorded.
+    CommandStreamChunk getChunk() const;
+
 private:
+    // 256 KB is a good preinitial size, and should be cautiously used for mainly
+    // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
+    // to reduce these calls. (batching would be highly beneficial.)
+    LinearScratchMemory<R_KB(256), true> m_commandAllocator;
+
+    // Resource allocator for managing resources within the command list. This is static, for any resizing
+    // we will need to reallocate the resource allocator as well. (Any existing handles
+    // will be invalidated if it resizes.)
+    LinearScratchMemory<R_KB(256)> m_resourceAllocator;
+
+    // Chunk defines the overall size of the command list.
+    CommandStreamChunk m_chunk;
+
     // Render command list id.
     Id m_id;
 
     // This Instance
     CommandInstance instance;
-
-    // 1 Megabyte is a good preinitial size, and should be cautiously used for mainly
-    // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
-    // to reduce these calls. (batching would be highly beneficial.)
-    LinearScratchMemory<R_MB(1), true> m_commandAllocator;
-
-    // Resource allocator for managing resources within the command list. This is static, for any resizing
-    // we will need to reallocate the resource allocator as well. (Any existing handles
-    // will be invalidated if it resizes.)
-    LinearScratchMemory<R_MB(1)> m_resourceAllocator;
 };
 } // RenderApi
 } // Recluse

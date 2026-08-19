@@ -26,6 +26,8 @@ public:
         FeatureFlags flags = FeatureFlag_None;
     };
 
+    Context(Api api) : m_api(api) {}
+
     // Create an instance of a context with the given api, returns nullptr if the instance doesn't exist, or not supported.
     static Context* create(Api api, const Description& description = Description());
     static ResultCode free(Context* context);
@@ -38,6 +40,11 @@ public:
 
     // Free the given adapter.
     virtual ResultCode freeAdapter(Adapter* adapter) = 0;
+
+    Api getApi() const { return m_api; }
+
+private:
+    Api m_api;
 };
 
 typedef Context* ContextHandle;

@@ -21,7 +21,7 @@ public:
     
     virtual ResultCode createResource(const ResourceDescription& description, Resource** pResourceOut) = 0;
     virtual ResultCode createQueue(const QueueCreateDescription& description, Queue** ppQueueOut) = 0;
-    virtual ResultCode createPipeline(const PipelineDescription& description, PipelineId* pPipelineOut) = 0;
+    virtual ResultCode createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) = 0;
 
     // Create a swapchain for presentation. Requires a created queue for this.
     virtual ResultCode createSwapchain(const SwapchainCreateDescription& description, Swapchain** ppSwapchainOut) = 0;
