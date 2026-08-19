@@ -88,6 +88,14 @@ struct DrawIndexedInstancedCommand
     uint            baseVertex;
 };
 
+struct DrawInstancedCommand
+{
+    uint vertexCount;
+    uint instanceCount;
+    uint baseVertex;
+    uint baseInstance;
+};
+
 struct DispatchCommand
 {
     U32             x;

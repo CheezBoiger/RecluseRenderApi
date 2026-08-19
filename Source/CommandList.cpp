@@ -18,9 +18,9 @@ static CommandList::Id getId()
     return kIdCounter++;
 }
 
-CommandList::CommandList()
+CommandList::CommandList(CommandInstance instance)
     : m_id(kBadId)
-    , instance(CommandInstance::Primary)
+    , instance(instance)
 {
     m_id = getId();
 }
@@ -140,6 +140,21 @@ void CommandList::drawIndexedInstanced(uint indexCount, uint instanceCount, uint
     command->startInstance = firstInstance;
 
     m_chunk.sizeBytes += CommandHeader::dataSize<DrawIndexedInstancedCommand>();
+}
+
+void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance)
+{
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<DrawInstancedCommand>());
+    header->opcode = CommandOpcode_DrawInstanced;
+    header->size = sizeof(DrawInstancedCommand);
+
+    DrawInstancedCommand* command = CommandHeader::dataOffset<DrawInstancedCommand>(header);
+    command->baseInstance = baseInstance;
+    command->baseVertex = baseVertex;
+    command->instanceCount = instanceCount;
+    command->vertexCount = vertexCount;
+    
+    m_chunk.sizeBytes += CommandHeader::dataSize<DrawInstancedCommand>();
 }
 
 void CommandList::reset()

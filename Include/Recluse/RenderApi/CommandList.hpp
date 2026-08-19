@@ -4,7 +4,6 @@
 #pragma once
 
 #include <Recluse/RenderApi/Common.hpp>
-
 #include <Recluse/Types.hpp>
 #include <Recluse/Memory/LinearScratchMemory.hpp>
 
@@ -36,7 +35,7 @@ public:
 
     enum CommandInstance { Primary, Bundle };
 
-    CommandList();
+    CommandList(CommandInstance instance = Primary);
 
     void begin();
     void end();
