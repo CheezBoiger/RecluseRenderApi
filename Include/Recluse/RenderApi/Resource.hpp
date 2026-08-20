@@ -20,11 +20,16 @@ public:
         uint sizeBytes;
     };
 
+    Resource(ResourceId id) : m_id(id) { }
+    virtual ~Resource() { }
+
     virtual ResultCode map(void** ptr, const MapRange& range) = 0;
     virtual ResultCode unmap(const void* ptr, const MapRange& range) = 0;
     
     virtual ResourceViewId asView(const ResourceViewDescription& desc) = 0;
     virtual ResourceViewId defaultView() = 0;
+
+    ResourceId getId() const { return m_id; }
 
     virtual ResourceState getCurrentState() = 0;
 
@@ -39,6 +44,9 @@ public:
     {
         return defaultView();
     }
+
+private:
+    ResourceId m_id;
 };
 } // RenderApi
 } // Recluse

@@ -51,6 +51,8 @@ install(TARGETS ${RECLUSE_RENDER_API_NAME}
         CONFIGURATIONS Release
         ARCHIVE DESTINATION ${RECLUSE_BUILD_PATH}/Lib)
 
+add_subdirectory(Source/Platform/Vulkan)
+
 if (ENABLE_TESTS)
 	add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Test)
 endif()

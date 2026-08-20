@@ -14,12 +14,19 @@ namespace RenderApi {
 
 class Device;
 class Pipeline;
+class Resource;
 
 // Chunk defines the base and size of a chunk of commands.
 struct CommandStreamChunk
 {
     UPtr baseAddress = 0;
     U32  sizeBytes = 0;
+};
+
+struct ResourceTransition
+{
+    Resource* resource;
+    ResourceState newState;
 };
 
 // CommandList is actually a recorder, which handles command list generation from the application.
@@ -39,6 +46,9 @@ public:
 
     void begin();
     void end();
+
+    void transitionResources(ResourceTransition* transitions, uint numTransitions);
+    void transition(Resource* resource, ResourceState newState);
 
     void drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance);
     void drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance);

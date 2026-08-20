@@ -2,6 +2,7 @@
 #include <Recluse/RenderApi/CommandList.hpp>
 #include <Recluse/RenderApi/Pipeline.hpp>
 #include <Recluse/Threading/Threading.hpp>
+#include <Recluse/RenderApi/Resource.hpp>
 
 #include "Shared/CommandOps.hpp"
 
@@ -99,13 +100,16 @@ void CommandList::bindPipeline(Pipeline* pipeline)
 void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRenderTargets, ResourceViewId depthStencil)
 {
     const Bool hasDepthStencil = (depthStencil != 0 ? 1 : 0);
-    uint sizeBytes = sizeof(CommandHeader) + sizeof(BindRenderTargetsHeader) +
+
+    const uint dataSizeBytes = sizeof(BindRenderTargetsHeader) +
         sizeof(ResourceViewId) * (numRenderTargets) +
         sizeof(ResourceViewId) * hasDepthStencil;
 
+    const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes;
+
     CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
     header->opcode = CommandOpcode_BindRenderTargets;
-    header->size = sizeBytes;
+    header->size = dataSizeBytes;
 
     BindRenderTargetsHeader* renderTargetsHeader = CommandHeader::dataOffset<BindRenderTargetsHeader>(header);
     renderTargetsHeader->numRenderTargets = numRenderTargets;
@@ -155,6 +159,40 @@ void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseV
     command->vertexCount = vertexCount;
     
     m_chunk.sizeBytes += CommandHeader::dataSize<DrawInstancedCommand>();
+}
+
+void CommandList::transitionResources(ResourceTransition* transitions, uint numTransitions)
+{
+    if (numTransitions == 0) return;
+    const uint dataSizeBytes = sizeof(BarrierTransitionHeader) + sizeof(Transition) * numTransitions;
+    const uint sizeBytes = sizeof(CommandHeader) + 
+        dataSizeBytes;
+    
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
+    header->opcode = CommandOpcode_BarrierTransition;
+    header->size = dataSizeBytes;
+
+    BarrierTransitionHeader* barrierHeader = CommandHeader::dataOffset<BarrierTransitionHeader>(header);
+    barrierHeader->numTransitions = numTransitions;
+    
+    UPtr offset = reinterpret_cast<UPtr>(barrierHeader) + sizeof(BarrierTransitionHeader);
+
+    for (uint i = 0; i < numTransitions; ++i)
+    {
+        Transition* transition = reinterpret_cast<Transition*>(offset + sizeof(Transition) * i);
+        transition->id = transitions[i].resource->getId();
+        transition->resourceState = transitions[i].newState;
+    }
+    
+    m_chunk.sizeBytes += sizeBytes; 
+}
+
+void CommandList::transition(Resource* resource, ResourceState resourceState)
+{
+    ResourceTransition trans;
+    trans.newState = resourceState;
+    trans.resource = resource;
+    transitionResources(&trans, 1);
 }
 
 void CommandList::reset()

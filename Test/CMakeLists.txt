@@ -11,6 +11,9 @@ set(RECLUSE_TEST_FILES
 # Grab the gtest system.
 include(FetchContent)
 
+# Disable GoogleTest installation rules
+set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+
 FetchContent_Declare(
   googletest
   URL https://github.com/google/googletest/archive/refs/tags/v1.15.0.zip
@@ -36,3 +39,18 @@ target_link_libraries(${RECLUSE_TEST_NAME} PUBLIC
 	${RECLUSE_FRAMEWORK_BUILD_PATH}/Lib/RecluseFramework.lib
 	${RECLUSE_RENDER_API_LIBS}
 	PRIVATE gmock_main)
+	
+# Copy the shared library after the target builds
+add_custom_command(TARGET ${RECLUSE_TEST_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${RECLUSE_FRAMEWORK_BUILD_PATH}/Bin/RecluseFramework.dll"
+        "$<TARGET_FILE_DIR:${RECLUSE_TEST_NAME}>"
+    COMMENT "Copying shared library to executable directory..."
+)
+
+add_custom_command(TARGET ${RECLUSE_TEST_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${RECLUSE_BUILD_PATH}/Bin/RecluseRenderApi.dll"
+        "$<TARGET_FILE_DIR:${RECLUSE_TEST_NAME}>"
+    COMMENT "Copying shared library to executable directory..."
+)

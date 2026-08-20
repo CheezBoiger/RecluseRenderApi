@@ -15,7 +15,7 @@ typedef U32 SamplerId;
 
 typedef U64 ResourceViewId;
 
-enum Api
+enum class Api : u32
 {
     Unknown,
     Direct3D11,
@@ -177,6 +177,14 @@ typedef u32 CommandTypeFlags;
 struct QueueCreateDescription
 {
     CommandTypeFlags typeFlags = CommandTypeFlag_Direct;
+};
+
+
+struct IApiObject
+{
+public:
+    // Checks of the object is valid.
+    virtual Bool isValid() const = 0;
 };
 } // RenderApi
 } // Recluse

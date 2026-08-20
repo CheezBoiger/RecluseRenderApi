@@ -11,7 +11,7 @@
 namespace Recluse {
 namespace RenderApi {
 
-// Command opcodes are the opcodes that are used to identify the command that is being executed.
+// Command opcodes are the operations that are used to identify the command that is being executed.
 // They should be used to help identify the necessary implementation for the Api.
 enum CommandOpcode : u16
 {
@@ -48,7 +48,10 @@ enum CommandOpcode : u16
 
 struct CommandHeader
 {
+    // Opcode is the operation instruction of this command.
     CommandOpcode opcode;
+
+    // Size defines the actual size of the data packet, excluding this header.
     U16           size;
 
     // Gets the data size of the command, this is the header + command data.
@@ -117,8 +120,20 @@ struct BindSamplerTableCommand
 
 struct BindRenderTargetsHeader
 {
-    u8 numRenderTargets : 7;
-    u8 hasDepthStencil : 1;
+    u32 numRenderTargets : 7;
+    u32 hasDepthStencil : 1;
+    u32 reserved : 24;
+};
+
+struct Transition
+{
+    ResourceId id;
+    ResourceState resourceState;
+};
+
+struct BarrierTransitionHeader
+{
+    uint numTransitions;
 };
 } // RenderApi
 } // Recluse

@@ -21,7 +21,7 @@ struct SwapchainCreateDescription
     uint            renderWidth;    // The width of the swapchain image.
     uint            renderHeight;   // The height of the swapchain image.
     uint            format;         // Format for the swapchain.
-    uint            numFrames;
+    uint            numFrames;      // The number of swapchain images/frames.
     WindowHandle    windowHandle;    // The window handle that the swapchain will be presenting to.
 };
 
@@ -32,7 +32,7 @@ public:
     // Submit a present to the given queue.
     virtual ResultCode present() = 0;
 
-    virtual ResultCode reconfigure(const SwapchainCreateDescription& description) = 0;
+    virtual ResultCode rebuild(const SwapchainCreateDescription& description) = 0;
 
     virtual Resource* current() = 0;
 

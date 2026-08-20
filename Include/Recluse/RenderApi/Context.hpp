@@ -15,7 +15,7 @@ class Adapter;
 
 // Context is the starting point for the render api. It is intented to 
 // be used to create the render api, and enumerate adapters for the given api.
-class RecluseRenderApi_PUBLIC_API Context
+class RecluseRenderApi_PUBLIC_API Context : public IApiObject
 {
 public:
 
@@ -27,6 +27,8 @@ public:
     };
 
     Context(Api api) : m_api(api) {}
+
+    virtual Bool isValid() const override { return false; }
 
     // Create an instance of a context with the given api, returns nullptr if the instance doesn't exist, or not supported.
     static Context* create(Api api, const Description& description = Description());
