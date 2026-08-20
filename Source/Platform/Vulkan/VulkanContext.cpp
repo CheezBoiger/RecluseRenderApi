@@ -217,7 +217,12 @@ Adapter* VulkanContext::createAdapter(uint adapter)
     {
         std::vector<VkPhysicalDevice> devices{m_totalPhysicalDevices};
         VkResult result = vkEnumeratePhysicalDevices(m_instance, &m_totalPhysicalDevices, devices.data());
+        R_ASSERT(adapter < m_totalPhysicalDevices);
         R_ASSERT(result == VK_SUCCESS);
+
+        // Early out if we asked for an index that overlaps the total number of physical devices..
+        if (adapter >= m_totalPhysicalDevices)
+            return nullptr;
 
         VkPhysicalDevice device = devices[adapter];
         auto it = m_adapterMap[this].find(device);
