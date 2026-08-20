@@ -17,9 +17,11 @@ struct DeviceDescription
     B32 reserved : 30;
 };
 
-class Adapter
+class Adapter : public IApiObject
 {
 public:
+    Adapter(uint id) : m_id(id) { }
+
     enum Type
     {
         Type_Unknown = 0,
@@ -41,11 +43,16 @@ public:
         uint        index;
     };
     
-    virtual ResultCode queryInformation(Information* info) = 0;
-    virtual Bool supportsFeature(FeatureFlag feature) = 0;
-    virtual Device* createDevice(const DeviceDescription& desc) = 0;
+    virtual ResultCode  queryInformation(Information* info) = 0;
+    virtual Bool        supportsFeature(FeatureFlag feature) = 0;
+    virtual Device*     createDevice(const DeviceDescription& desc) = 0;
 
-    virtual ResultCode freeDevice(Device* device) = 0;
+    virtual ResultCode  freeDevice(Device* device) = 0;
+
+    uint getId() const { return m_id; }
+
+private:
+    uint m_id;
 };
 } // RenderApi
 } // Recluse

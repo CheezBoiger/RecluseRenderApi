@@ -11,25 +11,28 @@ namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
+class VulkanAdapter;
 
 class RecluseRenderApi_PUBLIC_API VulkanContext : public Context
 {
 public:
     VulkanContext(const Description& description);
+    ~VulkanContext();
 
-    void initialize(const Description& description);
-    void destroy();
+    void            initialize(const Description& description);
+    ResultCode      destroy();
 
-    u32 enumerateAdapterInformation(Adapter::Information* adapterInformation, u32 maxAdapters) override;
+    u32             enumerateAdapterInformation(Adapter::Information* adapterInformation, u32 maxAdapters) override;
 
-    Adapter* createAdapter(uint adapter) override;
-    ResultCode freeAdapter(Adapter* adapter) override;
+    Adapter*        createAdapter(uint adapter) override;
+    ResultCode      freeAdapter(Adapter* adapter) override;
 
-    Bool isValid() const override;
+    Bool            isValid() const override;
 
 private:
     // Instance for vulkan.
-    VkInstance m_instance;
+    VkInstance      m_instance;
+    uint32_t        m_totalPhysicalDevices;
 };
 } // Vulkan
 } // RenderApi

@@ -13,5 +13,11 @@
 
 #include <vulkan/vulkan.h>
 
+namespace Recluse {
+namespace RenderApi {
+namespace Vulkan {
 
+} // Vulkan
+} // RenderApi
+} // Recluse
 #endif // RECLUSE_VULKAN_COMMON_HPP

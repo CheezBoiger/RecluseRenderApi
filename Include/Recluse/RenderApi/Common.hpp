@@ -33,6 +33,8 @@ enum FeatureFlag
     FeatureFlag_Raytracing = 1 << 0,
     FeatureFlag_MeshShader = 1 << 1,
     FeatureFlag_DebugMarkers = 1 << 2,
+    FeatureFlag_Validation = 1 << 3,
+    FeatureFlag_ApiDump = 1 << 4,
 };
 
 typedef u32 FeatureFlags;

@@ -13,7 +13,7 @@ using namespace std;
 using namespace Recluse;
 using namespace Recluse::RenderApi;
 
-TEST(VulkanTest, SimpleCommand)
+TEST(CommandListTest, SimpleCommand)
 {
     CommandList list;
 

@@ -35,7 +35,8 @@ target_include_directories(${RECLUSE_TEST_NAME} PUBLIC ${RECLUSE_RENDER_API_INCL
 	${CMAKE_SOURCE_DIR}/Recluse/Build/Include/RecluseRenderApi)
 	
 target_link_libraries(${RECLUSE_TEST_NAME} PUBLIC 
-	${RECLUSE_BUILD_PATH}/Lib/RecluseRenderApi.lib
+	${RECLUSE_RENDER_API_NAME}
+	${RECLUSE_VULKAN_NAME}
 	${RECLUSE_FRAMEWORK_BUILD_PATH}/Lib/RecluseFramework.lib
 	${RECLUSE_RENDER_API_LIBS}
 	PRIVATE gmock_main)
@@ -48,9 +49,10 @@ add_custom_command(TARGET ${RECLUSE_TEST_NAME} POST_BUILD
     COMMENT "Copying shared library to executable directory..."
 )
 
+# Copy all runtime DLLs required by MyApp to its output directory after building
 add_custom_command(TARGET ${RECLUSE_TEST_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${RECLUSE_BUILD_PATH}/Bin/RecluseRenderApi.dll"
-        "$<TARGET_FILE_DIR:${RECLUSE_TEST_NAME}>"
-    COMMENT "Copying shared library to executable directory..."
+        $<TARGET_RUNTIME_DLLS:${RECLUSE_TEST_NAME}>
+        $<TARGET_FILE_DIR:${RECLUSE_TEST_NAME}>
+    COMMAND_EXPAND_LISTS
 )

@@ -26,27 +26,29 @@ public:
         FeatureFlags flags = FeatureFlag_None;
     };
 
-    Context(Api api) : m_api(api) {}
+    Context(Api api, uint id) : m_api(api), m_id(id) {}
 
-    virtual Bool isValid() const override { return false; }
+    virtual Bool        isValid() const override { return false; }
 
     // Create an instance of a context with the given api, returns nullptr if the instance doesn't exist, or not supported.
-    static Context* create(Api api, const Description& description = Description());
-    static ResultCode free(Context* context);
+    static Context*     create(Api api, const Description& description = Description());
+    static ResultCode   free(Context* context);
 
     // Enumerate the adapter information for the given api, returns the number of adapters enumerated.
-    virtual u32 enumerateAdapterInformation(Adapter::Information* adapterInformation, u32 maxAdapters) = 0;
+    virtual u32         enumerateAdapterInformation(Adapter::Information* adapterInformation, u32 maxAdapters) = 0;
 
     // Create an adapter for the given index, returns nullptr if the adapter doesn't exist.
-    virtual Adapter* createAdapter(uint index) = 0;
+    virtual Adapter*    createAdapter(uint index) = 0;
 
     // Free the given adapter.
-    virtual ResultCode freeAdapter(Adapter* adapter) = 0;
+    virtual ResultCode  freeAdapter(Adapter* adapter) = 0;
 
-    Api getApi() const { return m_api; }
+    Api                 getApi() const { return m_api; }
+    uint                getId() const { return m_id; }
 
 private:
-    Api m_api;
+    Api                 m_api;
+    uint                m_id;
 };
 
 typedef Context* ContextHandle;

@@ -40,7 +40,7 @@ Context* Context::create(Api api, const Description& description)
             libContext.loader.load("RecluseRenderApiD3D12.dll");
             break;
         case Api::Vulkan:
-            libContext.loader.load("RecluseRenderApiVulkan.dll");
+            libContext.loader.load("RecluseVulkan.dll");
             break;
         case Api::OpenGL:
             libContext.loader.load("RecluseRenderApiOpenGL.dll");

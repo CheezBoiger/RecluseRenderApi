@@ -9,8 +9,15 @@ set(RECLUSE_VULKAN_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(RECLUSE_VULKAN_FILES 
 	${RECLUSE_VULKAN_PATH}/VulkanCommon.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanCommon.cpp
+	${RECLUSE_VULKAN_PATH}/SupportGraph.hpp
+	${RECLUSE_VULKAN_PATH}/SupportGraph.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanContext.hpp
-	${RECLUSE_VULKAN_PATH}/VulkanContext.cpp)
+	${RECLUSE_VULKAN_PATH}/VulkanContext.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanAdapter.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanAdapter.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanInstance.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanInstance.cpp)
 	
 set(RECLUSE_VULKAN_INCLUDE_PATHS)
 set(RECLUSE_VULKAN_LIB_PATHS)
@@ -25,7 +32,8 @@ if (${Vulkan_FOUND})
 		${RECLUSE_BUILD_PATH}/Include/RecluseRenderApi)
 	target_link_libraries(${RECLUSE_VULKAN_NAME} PRIVATE Vulkan::Vulkan
 		${RECLUSE_FRAMEWORK_BUILD_PATH}/Lib/RecluseFramework.lib
-		${RECLUSE_BUILD_PATH}/Lib/RecluseRenderApi.lib)
+		${RECLUSE_RENDER_API_NAME})
+	add_dependencies(${RECLUSE_VULKAN_NAME} ${RECLUSE_RENDER_API_NAME})
 		
 	install(TARGETS ${RECLUSE_VULKAN_NAME}
 			CONFIGURATIONS Debug
