@@ -20,6 +20,10 @@ struct LibraryContext
     CreateContextFn     createContextFn;
     FreeContextFn       freeContextFn;
     std::set<Context*>  contexts;
+
+    LibraryContext()
+        : createContextFn(nullptr)
+        , freeContextFn(nullptr) { }
 };
 
 std::map<Api, LibraryContext> g_libraryContexts;

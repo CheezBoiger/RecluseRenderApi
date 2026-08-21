@@ -36,7 +36,7 @@ target_include_directories(${RECLUSE_TEST_NAME} PUBLIC ${RECLUSE_RENDER_API_INCL
 	
 target_link_libraries(${RECLUSE_TEST_NAME} PUBLIC 
 	${RECLUSE_RENDER_API_NAME}
-	${RECLUSE_VULKAN_NAME}
+	RecluseVulkan
 	${RECLUSE_FRAMEWORK_BUILD_PATH}/Lib/RecluseFramework.lib
 	${RECLUSE_RENDER_API_LIBS}
 	PRIVATE gmock_main)
