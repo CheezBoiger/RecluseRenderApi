@@ -66,14 +66,18 @@ enum ResourceType
 enum ResourceMemoryUsage
 {
     ResourceMemoryUsage_Unknown,
-    // Default is the default memory usage for the resource. This is typically GPU local memory.
+    // Default is the default memory usage for the resource. This is typically GPU local memory, allowed to be written to by the GPU, but not CPU.
     ResourceMemoryUsage_Default,
-    // Immutable is memory that is allocated on the GPU and initialized once, but cannot be written to by the CPU. This is typically used for resources that are static and do not change often.
+    // Immutable is memory that is allocated on the GPU and initialized once, but cannot be written to by the CPU or GPU. 
+    // This is typically used for resources that are static and do not change.
     ResourceMemoryUsage_Immutable,
     // Dynamic is memory that is allocated on the CPU and can be written to by the CPU. This is typically used for resources that change often.
+    // Readable by the GPU, not writable. Should not be read by the CPU.
     ResourceMemoryUsage_Dynamic,
-    // Staging is memory that is allocated on the CPU and can be written to by the CPU. This is typically used for resources that are used for transferring data between the CPU and GPU.
+    // Staging is memory that is allocated on the CPU and can be written to by the CPU. This is typically used for resources that are transferring data from CPU to GPU.
     ResourceMemoryUsage_Staging,
+    // Readback is memory that is readable by the CPU. Typically used for resources that are transferring data from GPU to CPU.
+    ResourceMemoryUsage_Readback,
 };
 
 enum ResourceUsage
