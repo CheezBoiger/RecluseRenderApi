@@ -29,7 +29,8 @@ public:
 
     virtual ~Device() { }
     
-    virtual ResultCode createResource(const Resource::Description& description, Resource** pResourceOut) = 0;
+    virtual ResultCode createResource(const Resource::Description& description, Resource** pResourceOut, 
+        void* pInitialData = nullptr, uint initialSizeBytes = 0) = 0;
     virtual ResultCode createQueue(const Queue::Description& description, Queue** ppQueueOut) = 0;
     virtual ResultCode createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) = 0;
 

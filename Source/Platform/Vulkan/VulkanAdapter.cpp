@@ -202,12 +202,12 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, nullptr);
     std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, queueFamilyProperties.data());
-    // TODO: Query queues to be made.
 
     VkDeviceCreateInfo deviceCi = { };
     deviceCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceCi.enabledLayerCount = 0;
     deviceCi.ppEnabledLayerNames = nullptr;
+    
 
     return nullptr;
 }

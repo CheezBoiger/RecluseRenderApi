@@ -22,7 +22,8 @@ public:
 
     ~VulkanDevice();
 
-    virtual ResultCode  createResource(const Resource::Description& description, Resource** pResourceOut) override;
+    virtual ResultCode  createResource(const Resource::Description& description, Resource** pResourceOut, 
+        void* pInitialData, uint initialSizeBytes) override;
     virtual ResultCode  createQueue(const Queue::Description& description, Queue** ppQueueOut) override;
     virtual ResultCode  createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) override;
 

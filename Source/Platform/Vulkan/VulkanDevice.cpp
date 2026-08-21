@@ -18,7 +18,8 @@ VulkanDevice::~VulkanDevice()
     m_device = VK_NULL_HANDLE;
 }
 
-ResultCode VulkanDevice::createResource(const Resource::Description& description, Resource** resource)
+ResultCode VulkanDevice::createResource(const Resource::Description& description, Resource** resource,
+    void* pInitialData, uint initialSizeBytes)
 {
     return RecluseResult_NoImpl;
 }
