@@ -76,81 +76,139 @@ Bool VulkanAdapter::supportsFeature(FeatureFlag feature)
 
 Device* VulkanAdapter::createDevice(const Device::Description& description)
 {
-    SupportGraph graph;
+    std::vector<const char*> requestedExtensions;
 
-    graph(VK_KHR_16BIT_STORAGE_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_8BIT_STORAGE_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_RAY_QUERY_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_EXT_MESH_SHADER_EXTENSION_NAME, SupportGraph::Extension::Device)
+    {
+        std::vector<std::string> initialExt;
+
+        SupportGraph graph;
+
+        graph(VK_KHR_16BIT_STORAGE_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_8BIT_STORAGE_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_RAY_QUERY_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_EXT_MESH_SHADER_EXTENSION_NAME, SupportGraph::Extension::Device)
 #if defined(VK_NV_mesh_shader)
-        (VK_NV_MESH_SHADER_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_NV_MESH_SHADER_EXTENSION_NAME, SupportGraph::Extension::Device)
 #endif
-        (VK_KHR_SPIRV_1_4_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_MULTIVIEW_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_MAINTENANCE2_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_DEVICE_GROUP_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_MAINTENANCE3_EXTENSION_NAME, SupportGraph::Extension::Device)
-        (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance);
+            (VK_KHR_SPIRV_1_4_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_MULTIVIEW_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_MAINTENANCE2_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_DEVICE_GROUP_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_MAINTENANCE3_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_MAINTENANCE1_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance);
 
-    // Graph link dependencies
-    graph
-        (VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, { 
-            { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true },
-            { VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true } })
+        // Graph link dependencies
+        graph
+            (VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
 
-        (VK_KHR_RAY_QUERY_EXTENSION_NAME, { 
-            { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true },
-            { VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true } })
+            (VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, { 
+                { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true },
+                { VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true } })
 
-        (VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, { 
-            { VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true },
-            { VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true },
-            { VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true } })
+            (VK_KHR_RAY_QUERY_EXTENSION_NAME, { 
+                { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true },
+                { VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true } })
 
-        (VK_EXT_MESH_SHADER_EXTENSION_NAME, { 
-            { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true } })
+            (VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, { 
+                { VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true },
+                { VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true },
+                { VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true } })
 
-        (VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, { 
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
-            { VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, true } })
+            (VK_EXT_MESH_SHADER_EXTENSION_NAME, { 
+                { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true } })
 
-        (VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, { 
-            { VK_KHR_MULTIVIEW_EXTENSION_NAME, true },
-            { VK_KHR_MAINTENANCE2_EXTENSION_NAME, true } })
+            (VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
+                { VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, true } })
 
-        (VK_KHR_MULTIVIEW_EXTENSION_NAME, { 
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+            (VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, { 
+                { VK_KHR_MULTIVIEW_EXTENSION_NAME, true },
+                { VK_KHR_MAINTENANCE2_EXTENSION_NAME, true } })
 
-        (VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME, { 
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+            (VK_KHR_MULTIVIEW_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
 
-        (VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, { 
-            { VK_KHR_MAINTENANCE3_EXTENSION_NAME, true },
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+            (VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
 
-        (VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, { 
-            { VK_KHR_DEVICE_GROUP_EXTENSION_NAME, true },
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+            (VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, { 
+                { VK_KHR_MAINTENANCE3_EXTENSION_NAME, true },
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
 
-        (VK_KHR_MAINTENANCE3_EXTENSION_NAME, { 
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+            (VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, { 
+                { VK_KHR_DEVICE_GROUP_EXTENSION_NAME, true },
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+
+            (VK_KHR_MAINTENANCE3_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
     
-        (VK_KHR_SPIRV_1_4_EXTENSION_NAME, { 
-            { VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, true } })
+            (VK_KHR_SPIRV_1_4_EXTENSION_NAME, { 
+                { VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, true } })
 
-        (VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, { 
-            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } });
+            (VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
 
-    
+            (VK_KHR_16BIT_STORAGE_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
+                { VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, true } })
+
+            (VK_KHR_16BIT_STORAGE_EXTENSION_NAME, { 
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
+                { VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, true } });
+
+        initialExt.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
+        initialExt.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+
+        if (description.enableMeshShaders)
+        {
+            initialExt.push_back(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+        }
+
+        if (description.enableRayTracing)
+        {
+            initialExt.push_back(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME);
+            initialExt.push_back(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+            initialExt.push_back(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME);
+        }
+
+        if (description.enableVariableRateShading)
+        {
+            initialExt.push_back(VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME);
+        }
+
+        if (description.enableSamplerFeedback)
+        {
+            initialExt.push_back(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME);
+        }
+
+        requestedExtensions = graph.queryAllExtensions(initialExt);
+    }
+
+    uint32_t queueFamilyPropertyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, nullptr);
+    std::vector<VkQueueFamilyProperties> queueFamilyProperties(queueFamilyPropertyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, queueFamilyProperties.data());
+    // TODO: Query queues to be made.
+
+    VkDeviceCreateInfo deviceCi = { };
+    deviceCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCi.enabledLayerCount = 0;
+    deviceCi.ppEnabledLayerNames = nullptr;
+
     return nullptr;
 }
 
