@@ -305,33 +305,8 @@ u32 VulkanContext::enumerateAdapterInformation(Adapter::Information* adapterInfo
 
         for (uint i = 0; i < maxAdapters; ++i)
         {
-            VkPhysicalDeviceProperties properties;
-            vkGetPhysicalDeviceProperties(physicalDevices[i], &properties);
-            adapterInformation[i].index = i;
-            adapterInformation[i].vendorId = properties.vendorID;
-            adapterInformation[i].deviceId = properties.deviceID;
-
-            strncpy(adapterInformation[i].name, properties.deviceName, 128);
-
-            switch (properties.deviceType)
-            {
-                case VK_PHYSICAL_DEVICE_TYPE_CPU:
-                    adapterInformation[i].type = Adapter::Type_CPU;
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-                    adapterInformation[i].type = Adapter::Type_Discrete;
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-                    adapterInformation[i].type = Adapter::Type_Integrated;
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-                    adapterInformation[i].type = Adapter::Type_Virtual;
-                    break;
-                case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-                default:
-                    adapterInformation[i].type = Adapter::Type_Unknown;
-                    break;
-            }
+            VkPhysicalDeviceProperties properties = VulkanAdapter::gatherProperties(physicalDevices[i]);
+            adapterInformation[i] = VulkanAdapter::gatherInformation(properties, i);
         }
     }
     
@@ -358,7 +333,7 @@ Adapter* VulkanContext::createAdapter(uint adapter)
         auto it = m_adapterMap[this].find(device);
         if (it == m_adapterMap[this].end())
         {
-            m_adapterMap[this].insert(std::make_pair(devices[adapter], VulkanAdapter(devices[adapter])));
+            m_adapterMap[this].insert(std::make_pair(devices[adapter], VulkanAdapter(this, devices[adapter])));
             it = m_adapterMap[this].find(device);
         }
         nativeAdapter = &it->second;        

@@ -93,24 +93,6 @@ enum ResourceUsage
     ResourceUsage_AccelerationStructure = (1 << 10)
 };
 
-
-struct InstanceDescription
-{
-};
-
-
-struct ResourceDescription
-{
-    ResourceType type;
-    ResourceFormat format;
-    ResourceUsage usage;
-    ResourceMemoryUsage memoryUsage;
-    uint width;
-    uint height;
-    uint depthOrArraySize;
-};
-
-
 struct DescriptorSet
 {
 public:
@@ -173,12 +155,6 @@ enum CommandTypeFlag
 };
 
 typedef u32 CommandTypeFlags;
-
-struct QueueCreateDescription
-{
-    CommandTypeFlags typeFlags = CommandTypeFlag_Direct;
-};
-
 
 struct IApiObject
 {

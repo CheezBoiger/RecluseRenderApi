@@ -1,7 +1,11 @@
 //
 #include "VulkanAdapter.hpp"
+#include "VulkanDevice.hpp"
+#include "SupportGraph.hpp"
 
 #include <Recluse/Messaging.hpp>
+
+#include <map>
 
 namespace Recluse {
 namespace RenderApi {
@@ -9,15 +13,59 @@ namespace Vulkan {
 
 static uint kAdapterCounter = 0;
 
-VulkanAdapter::VulkanAdapter(VkPhysicalDevice physDevice)
+std::map<VulkanAdapter*, std::map<VkDevice, VulkanDevice>> g_deviceMap;
+
+VkPhysicalDeviceProperties VulkanAdapter::gatherProperties(VkPhysicalDevice physicalDevice)
+{
+    VkPhysicalDeviceProperties properties = { };
+    vkGetPhysicalDeviceProperties(physicalDevice, &properties);
+    return properties;
+}
+
+Adapter::Information VulkanAdapter::gatherInformation(const VkPhysicalDeviceProperties& properties, uint index)
+{
+    Adapter::Information adapterInformation = { };
+    adapterInformation.index = index;
+    adapterInformation.vendorId = properties.vendorID;
+    adapterInformation.deviceId = properties.deviceID;
+
+    strncpy(adapterInformation.name, properties.deviceName, 128);
+
+    switch (properties.deviceType)
+    {
+        case VK_PHYSICAL_DEVICE_TYPE_CPU:
+            adapterInformation.type = Adapter::Type_CPU;
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+            adapterInformation.type = Adapter::Type_Discrete;
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+            adapterInformation.type = Adapter::Type_Integrated;
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+            adapterInformation.type = Adapter::Type_Virtual;
+            break;
+        case VK_PHYSICAL_DEVICE_TYPE_OTHER:
+        default:
+            adapterInformation.type = Adapter::Type_Unknown;
+            break;
+    }
+
+    return adapterInformation;
+}
+
+VulkanAdapter::VulkanAdapter(VulkanContext* context, VkPhysicalDevice physDevice, uint adapterIndex)
     : Adapter(++kAdapterCounter)
     , m_physicalDevice(physDevice)
+    , m_context(context)
+    , m_adapterIndex(adapterIndex)
 {
     initialize();
 }
 
 ResultCode VulkanAdapter::queryInformation(Information* info)
 {
+    *info = gatherInformation(gatherProperties(m_physicalDevice), m_adapterIndex);
     return RecluseResult_Ok;
 }
 
@@ -26,8 +74,83 @@ Bool VulkanAdapter::supportsFeature(FeatureFlag feature)
     return false;
 }
 
-Device* VulkanAdapter::createDevice(const DeviceDescription& description)
+Device* VulkanAdapter::createDevice(const Device::Description& description)
 {
+    SupportGraph graph;
+
+    graph(VK_KHR_16BIT_STORAGE_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_8BIT_STORAGE_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_RAY_QUERY_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_EXT_MESH_SHADER_EXTENSION_NAME, SupportGraph::Extension::Device)
+#if defined(VK_NV_mesh_shader)
+        (VK_NV_MESH_SHADER_EXTENSION_NAME, SupportGraph::Extension::Device)
+#endif
+        (VK_KHR_SPIRV_1_4_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_MULTIVIEW_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_MAINTENANCE2_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_DEVICE_GROUP_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_MAINTENANCE3_EXTENSION_NAME, SupportGraph::Extension::Device)
+        (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance);
+
+    // Graph link dependencies
+    graph
+        (VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, { 
+            { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true },
+            { VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true } })
+
+        (VK_KHR_RAY_QUERY_EXTENSION_NAME, { 
+            { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true },
+            { VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, true } })
+
+        (VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, { 
+            { VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, true },
+            { VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, true },
+            { VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, true } })
+
+        (VK_EXT_MESH_SHADER_EXTENSION_NAME, { 
+            { VK_KHR_SPIRV_1_4_EXTENSION_NAME, true } })
+
+        (VK_KHR_FRAGMENT_SHADING_RATE_EXTENSION_NAME, { 
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
+            { VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, true } })
+
+        (VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, { 
+            { VK_KHR_MULTIVIEW_EXTENSION_NAME, true },
+            { VK_KHR_MAINTENANCE2_EXTENSION_NAME, true } })
+
+        (VK_KHR_MULTIVIEW_EXTENSION_NAME, { 
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+
+        (VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME, { 
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+
+        (VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, { 
+            { VK_KHR_MAINTENANCE3_EXTENSION_NAME, true },
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+
+        (VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, { 
+            { VK_KHR_DEVICE_GROUP_EXTENSION_NAME, true },
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+
+        (VK_KHR_MAINTENANCE3_EXTENSION_NAME, { 
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } })
+    
+        (VK_KHR_SPIRV_1_4_EXTENSION_NAME, { 
+            { VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, true } })
+
+        (VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME, { 
+            { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true } });
+
+    
     return nullptr;
 }
 

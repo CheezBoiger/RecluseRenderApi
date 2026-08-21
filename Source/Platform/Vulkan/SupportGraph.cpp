@@ -39,6 +39,28 @@ Bool SupportGraph::linkDependencies(const std::string& extension, const std::vec
     return false;
 }
 
+std::vector<SupportGraph::DependencyInput> SupportGraph::getDependencies(const std::string& extension, Extension::Type type)
+{
+    std::vector<DependencyInput> results;
+    Hash64 extHash = recluseHashFast(extension.data(), extension.size());
+    auto it = dependencyGraph.find(extHash);
+    if (it != dependencyGraph.end())
+    {
+        Dependencies& dependencies = it->second;
+        for (auto depIt = dependencies.dependencies.begin(); depIt != dependencies.dependencies.end(); ++depIt)
+        {
+            auto depExtIt = extensionMap.find(depIt->hash);
+            // Add if the type also applies.
+            if (depExtIt != extensionMap.end() && (depExtIt->second.type == type))
+            {
+                DependencyInput input { depExtIt->second.extension, depIt->required };
+                results.push_back(input);
+            }
+        }
+    }
+    return results;
+}
+
 std::vector<const char*> SupportGraph::queryAllExtensions(const std::vector<std::string>& requestedExtensions)
 {
     std::vector<const char*> extensions;

@@ -14,14 +14,19 @@ namespace Recluse {
 namespace RenderApi { 
 namespace Vulkan {
 
+class VulkanContext;
+
 class RecluseRenderApi_PUBLIC_API VulkanAdapter : public Adapter
 {
 public:
-    VulkanAdapter(VkPhysicalDevice physicalDevice = VK_NULL_HANDLE);
+    static VkPhysicalDeviceProperties   gatherProperties(VkPhysicalDevice physicalDevice);
+    static Information                  gatherInformation(const VkPhysicalDeviceProperties& properties, uint index);
+
+    VulkanAdapter(VulkanContext* context = nullptr, VkPhysicalDevice physicalDevice = VK_NULL_HANDLE, uint adapterIndex = -1);
 
     virtual ResultCode  queryInformation(Information* info) override;
     virtual Bool        supportsFeature(FeatureFlag feature) override;
-    virtual Device*     createDevice(const DeviceDescription& desc) override;
+    virtual Device*     createDevice(const Device::Description& desc) override;
 
     virtual ResultCode  freeDevice(Device* device) override;
     virtual Bool        isValid() const { return m_physicalDevice != VK_NULL_HANDLE; }
@@ -32,13 +37,18 @@ public:
     VkPhysicalDeviceMemoryProperties getMemoryProperties() const;
     VkPhysicalDeviceMemoryBudgetPropertiesEXT getBudgetProperties() const;
 
+    VulkanContext*      getContext() const { return m_context; }
+
 private:
 
     void initialize();
 
+    VulkanContext*                              m_context;
+
     VkPhysicalDevice                            m_physicalDevice;
     VkPhysicalDeviceMemoryProperties2           m_memoryProperties; // Static total memory for each memory heap. Doesn't take realtime into account.
     VkPhysicalDeviceMemoryBudgetPropertiesEXT   m_memoryBudgets;    // this is realtime memory budgets that are taken into account.
+    uint                                        m_adapterIndex;
 };
 } // Vulkan
 } // RenderApi

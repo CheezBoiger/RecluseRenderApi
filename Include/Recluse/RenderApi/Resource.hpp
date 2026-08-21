@@ -13,6 +13,16 @@ namespace RenderApi {
 class Resource
 {
 public:
+    struct Description
+    {
+        ResourceType type;
+        ResourceFormat format;
+        ResourceUsage usage;
+        ResourceMemoryUsage memoryUsage;
+        uint width;
+        uint height;
+        uint depthOrArraySize;
+    };
 
     struct MapRange
     {
@@ -33,7 +43,7 @@ public:
 
     virtual ResourceState getCurrentState() = 0;
 
-    virtual ResourceDescription getDescription() = 0;
+    virtual Resource::Description getDescription() = 0;
 
     ResourceViewId operator()(const ResourceViewDescription& desc)
     {

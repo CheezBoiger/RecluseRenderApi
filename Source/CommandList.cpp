@@ -195,6 +195,32 @@ void CommandList::transition(Resource* resource, ResourceState resourceState)
     transitionResources(&trans, 1);
 }
 
+void CommandList::executeBundles(CommandList** bundles, uint numBundles)
+{
+    if (numBundles == 0) return;
+
+    const uint dataSizeBytes = sizeof(BundlesHeader)
+        + sizeof(CommandStreamChunk) * numBundles;
+    const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes; 
+
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
+    header->opcode = CommandOpcode_ExecuteBundles;
+    header->size = dataSizeBytes;
+
+    BundlesHeader* bundleHeader = CommandHeader::dataOffset<BundlesHeader>(header);
+    bundleHeader->numBundles = numBundles;
+    
+    UPtr offset = reinterpret_cast<UPtr>(bundleHeader) + sizeof(BundlesHeader);
+
+    for (uint i = 0; i < numBundles; ++i)
+    {
+        CommandStreamChunk* chunk = reinterpret_cast<CommandStreamChunk*>(offset + sizeof(CommandStreamChunk) * i);
+        *chunk = bundles[i]->getChunk();
+    }
+    
+    m_chunk.sizeBytes += sizeBytes;
+}
+
 void CommandList::reset()
 {
     m_commandAllocator.clear();

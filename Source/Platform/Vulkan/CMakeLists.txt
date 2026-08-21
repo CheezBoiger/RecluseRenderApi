@@ -12,6 +12,8 @@ set(RECLUSE_VULKAN_FILES
 	${RECLUSE_VULKAN_PATH}/VulkanCommon.cpp
 	${RECLUSE_VULKAN_PATH}/SupportGraph.hpp
 	${RECLUSE_VULKAN_PATH}/SupportGraph.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanDevice.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanDevice.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanContext.hpp
 	${RECLUSE_VULKAN_PATH}/VulkanContext.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanAdapter.hpp
@@ -28,6 +30,7 @@ if (${Vulkan_FOUND})
 		${Vulkan_INCLUDE_DIRS}
 		${CMAKE_SOURCE_DIR}/Include
 		${RECLUSE_FRAMEWORK_PATH}/Include
+		${CMAKE_SOURCE_DIR}/Source
 		${RECLUSE_FRAMEWORK_BUILD_PATH}/Include/RecluseFramework
 		${RECLUSE_BUILD_PATH}/Include/RecluseRenderApi)
 	target_link_libraries(${RECLUSE_VULKAN_NAME} PRIVATE Vulkan::Vulkan

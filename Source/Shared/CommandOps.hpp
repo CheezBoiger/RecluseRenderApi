@@ -31,6 +31,7 @@ enum CommandOpcode : u16
     CommandOpcode_CopySubresource,
     CommandOpcode_BeginRenderPass,
     CommandOpcode_EndRenderPass,
+    CommandOpcode_ExecuteBundles,
 
     CommandOpcode_BarrierTransition,
     CommandOpcode_BarrierAliasing,
@@ -134,6 +135,11 @@ struct Transition
 struct BarrierTransitionHeader
 {
     uint numTransitions;
+};
+
+struct BundlesHeader
+{
+    uint numBundles;
 };
 } // RenderApi
 } // Recluse

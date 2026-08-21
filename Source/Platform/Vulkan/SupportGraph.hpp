@@ -12,6 +12,8 @@
 
 namespace Recluse {
 
+// SupportGraph maps extensions and strings to their dependencies, 
+// which are used for vulkan device extension querying.
 class SupportGraph
 {
 public:
@@ -44,8 +46,9 @@ public:
         std::set<Dependency> dependencies;
     };
 
-    Bool addExtension(const std::string& extension, Extension::Type type);
-    Bool linkDependencies(const std::string& extension, const std::vector<DependencyInput>& dependencies);
+    Bool                            addExtension(const std::string& extension, Extension::Type type);
+    Bool                            linkDependencies(const std::string& extension, const std::vector<DependencyInput>& dependencies);
+    std::vector<DependencyInput>    getDependencies(const std::string& extension, Extension::Type type);
 
     std::vector<const char*> queryAllExtensions(const std::vector<std::string>& requestedExtensions);
 

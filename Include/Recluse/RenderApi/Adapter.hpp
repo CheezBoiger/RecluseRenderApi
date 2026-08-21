@@ -3,19 +3,10 @@
 #pragma once
 
 #include <Recluse/RenderApi/Common.hpp>
+#include <Recluse/RenderApi/Device.hpp>
 
 namespace Recluse {
 namespace RenderApi {
-
-class Device;
-
-
-struct DeviceDescription
-{
-    B32 enableMeshShaders : 1;
-    B32 enableRayTracing : 1;
-    B32 reserved : 28;
-};
 
 class Adapter : public IApiObject
 {
@@ -45,7 +36,7 @@ public:
     
     virtual ResultCode  queryInformation(Information* info) = 0;
     virtual Bool        supportsFeature(FeatureFlag feature) = 0;
-    virtual Device*     createDevice(const DeviceDescription& desc) = 0;
+    virtual Device*     createDevice(const Device::Description& desc) = 0;
 
     virtual ResultCode  freeDevice(Device* device) = 0;
 

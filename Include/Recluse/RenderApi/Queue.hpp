@@ -26,6 +26,11 @@ struct SubmitDescription
 class Queue
 {
 public:
+    struct Description
+    {
+        CommandTypeFlags typeFlags = CommandTypeFlag_Direct;
+    };
+
     // Submit the render command list.
     virtual RecluseResult submit(U32 numLists, const CommandList** commandlists) = 0;
 
