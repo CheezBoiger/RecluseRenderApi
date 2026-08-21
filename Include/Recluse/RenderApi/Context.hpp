@@ -21,9 +21,12 @@ public:
 
     struct Description
     {
-        const char* applicationName = nullptr;
-        const char* engineName = nullptr;
-        FeatureFlags flags = FeatureFlag_None;
+        const char*     applicationName;
+        const char*     engineName;
+        Bool32          enableValidation       : 1;
+        Bool32          enableDebugMarkers     : 1;
+        Bool32          enableApiDump          : 1;
+        Bool32          reserved               : 29;
     };
 
     Context(Api api, uint id) : m_api(api), m_id(id) {}

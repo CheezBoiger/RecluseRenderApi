@@ -16,15 +16,57 @@ namespace Vulkan {
 static std::map<VulkanContext*, std::map<VkPhysicalDevice, VulkanAdapter>> m_adapterMap;
 static uint kContextCounter = 0;
 
-static std::vector<const char*> enumerateAndCheckLayers(FeatureFlags flags)
+VKAPI_ATTR VkBool32 VKAPI_CALL cbDebugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT      severity,
+    VkDebugUtilsMessageTypeFlagsEXT             messageTypes,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void*                                       pUserData)
+{
+    if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+    {
+        R_ERROR("Vulkan", "%s: %s", pCallbackData->pMessageIdName, pCallbackData->pMessage);
+    }
+    else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+    {
+        R_WARN("Vulkan", "%s: %s", pCallbackData->pMessageIdName, pCallbackData->pMessage);
+    }
+    else if (severity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
+    {
+        R_INFO("Vulkan", "%s: %s", pCallbackData->pMessageIdName, pCallbackData->pMessage);
+    }
+    return VK_FALSE;
+}
+
+static uint32_t queryMaxVulkanVersion() {
+    // vkEnumerateInstanceVersion is a core 1.1 function.
+    // Fetch its pointer dynamically in case the loader or driver is Vulkan 1.0.
+    static PFN_vkEnumerateInstanceVersion pfnEnumerateInstanceVersion = nullptr;
+
+    if (!pfnEnumerateInstanceVersion)
+        pfnEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion) vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion");
+
+    if (!pfnEnumerateInstanceVersion) {
+        // Function doesn't exist; driver/loader only supports Vulkan 1.0
+        return VK_API_VERSION_1_0;
+    }
+
+    uint32_t apiVersion = VK_API_VERSION_1_0;
+    VkResult result = pfnEnumerateInstanceVersion(&apiVersion);
+    if (result != VK_SUCCESS) {
+        return VK_API_VERSION_1_0;
+    }
+    return apiVersion;
+}
+
+static std::vector<const char*> enumerateAndCheckLayers(const Context::Description& description)
 {
     std::vector<const char*> layerOptions;
 
     // Load the layer options.
-    if (flags & FeatureFlag_Validation)
+    if (description.enableValidation)
         layerOptions.push_back("VK_LAYER_KHRONOS_validation");
 
-    if (flags & FeatureFlag_ApiDump)
+    if (description.enableApiDump)
         layerOptions.push_back("VK_LAYER_LUNARG_api_dump");
 
     uint32_t layerCount = 0;
@@ -60,7 +102,7 @@ static std::vector<const char*> enumerateAndCheckLayers(FeatureFlags flags)
     return layerOptions;
 }
 
-static std::vector<const char*> enumerateAndCheckExtensions(FeatureFlags flags)
+static std::vector<const char*> enumerateAndCheckExtensions(const Context::Description& description, uint32_t apiVersion)
 {
     std::vector<const char*> extensionOptions {
         VK_KHR_SURFACE_EXTENSION_NAME,
@@ -68,6 +110,27 @@ static std::vector<const char*> enumerateAndCheckExtensions(FeatureFlags flags)
         VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
 #endif
     };
+    
+    if (apiVersion < VK_API_VERSION_1_1)
+    {
+        // These extensions are redudant, but required if vulkan api version is < 1.1
+        extensionOptions.push_back(VK_KHR_DEVICE_GROUP_CREATION_EXTENSION_NAME);
+        extensionOptions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+    }
+
+    if (description.enableDebugMarkers || description.enableValidation)
+    {
+        // debug_utils is the modern updated extension debug handler over (debug_report and debug_marker)
+        // Should only be enabled if 1.0 is used.
+        if (apiVersion >= VK_API_VERSION_1_1) 
+        {
+            extensionOptions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        }
+        else
+        {
+            extensionOptions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        }
+    }
 
     std::vector<VkExtensionProperties> properties;
     uint32_t propertyCount = 0;
@@ -107,7 +170,23 @@ VulkanContext::VulkanContext(const Description& description)
     : Context(Api::Vulkan, ++kContextCounter)
     , m_instance(VK_NULL_HANDLE)
     , m_totalPhysicalDevices(0)
+    , m_vulkanApiVersion(R_VULKAN_DEFAULT_VERSION())
+    , pfnCreateDebugUtilsMessengerEXT(VK_NULL_HANDLE)
+    , pfnDestroyDebugUtilsMessengerEXT(VK_NULL_HANDLE)
+    , m_debugMessenger(VK_NULL_HANDLE)
 {
+    // Let's check the vulkan driver api version
+    uint32_t maxVulkanVersion = queryMaxVulkanVersion();
+    if (m_vulkanApiVersion > maxVulkanVersion)
+    {
+        R_WARN("Vulkan", "Requested vulkan version (v%d_%d) is not available, setting to max available (v%d_%d)",
+            VK_VERSION_MAJOR(m_vulkanApiVersion), 
+            VK_VERSION_MINOR(m_vulkanApiVersion), 
+            VK_VERSION_MAJOR(maxVulkanVersion), 
+            VK_VERSION_MINOR(maxVulkanVersion));
+        m_vulkanApiVersion = maxVulkanVersion;
+    }
+
     initialize(description);
 }
 
@@ -116,23 +195,23 @@ void VulkanContext::initialize(const Description& description)
     VkApplicationInfo applicationInfo       = { };
     VkInstanceCreateInfo instanceCreateInfo = { };
 
-    std::vector<const char*> layers = enumerateAndCheckLayers(description.flags);
-    std::vector<const char*> extensions = enumerateAndCheckExtensions(description.flags);
+    applicationInfo.sType                       = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+    applicationInfo.pEngineName                 = description.engineName;
+    applicationInfo.pApplicationName            = description.applicationName;
+    applicationInfo.apiVersion                  = getApiVersion();
+    applicationInfo.applicationVersion          = VK_MAKE_VERSION(0, 1, 0);
+    applicationInfo.engineVersion               = VK_MAKE_VERSION(0, 1, 0);
 
-    applicationInfo.sType               = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    applicationInfo.pEngineName         = description.engineName;
-    applicationInfo.pApplicationName    = description.applicationName;
-    applicationInfo.apiVersion          = VK_MAKE_API_VERSION(0, 1, 4, 0);
-    applicationInfo.applicationVersion  = VK_MAKE_VERSION(0, 1, 0);
-    applicationInfo.engineVersion       = VK_MAKE_VERSION(0, 1, 0);
+    std::vector<const char*> layers             = enumerateAndCheckLayers(description);
+    std::vector<const char*> extensions         = enumerateAndCheckExtensions(description, getApiVersion());
     
-    instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.pApplicationInfo = &applicationInfo;
-    instanceCreateInfo.enabledLayerCount = layers.size();
-    instanceCreateInfo.ppEnabledLayerNames = layers.data();
-    instanceCreateInfo.enabledExtensionCount = extensions.size();
-    instanceCreateInfo.ppEnabledExtensionNames = extensions.data();
-    instanceCreateInfo.flags = 0;
+    instanceCreateInfo.sType                    = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+    instanceCreateInfo.pApplicationInfo         = &applicationInfo;
+    instanceCreateInfo.enabledLayerCount        = layers.size();
+    instanceCreateInfo.ppEnabledLayerNames      = layers.data();
+    instanceCreateInfo.enabledExtensionCount    = extensions.size();
+    instanceCreateInfo.ppEnabledExtensionNames  = extensions.data();
+    instanceCreateInfo.flags                    = 0;
     
     VkResult result = vkCreateInstance(&instanceCreateInfo, nullptr, &m_instance);
     if (result != VK_SUCCESS)
@@ -145,11 +224,62 @@ void VulkanContext::initialize(const Description& description)
         // Query physical devices ahead of time.
         VkResult result = vkEnumeratePhysicalDevices(m_instance, &m_totalPhysicalDevices, nullptr);
         R_ASSERT(result == VK_SUCCESS);
+
+        queryCallbacks();
+
+        if (description.enableValidation)
+            registerValidationCallback();
+    }
+}
+
+void VulkanContext::queryCallbacks()
+{
+    if (m_vulkanApiVersion >= VK_API_VERSION_1_1)
+    {
+        pfnCreateDebugUtilsMessengerEXT = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkCreateDebugUtilsMessengerEXT");
+        pfnDestroyDebugUtilsMessengerEXT = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(m_instance, "vkDestroyDebugUtilsMessengerEXT");
+    }
+}
+
+void VulkanContext::registerValidationCallback()
+{
+    if (m_vulkanApiVersion >= VK_API_VERSION_1_1)
+    {
+        R_ASSERT(pfnCreateDebugUtilsMessengerEXT != VK_NULL_HANDLE);
+        R_ASSERT(pfnDestroyDebugUtilsMessengerEXT != VK_NULL_HANDLE);
+        VkDebugUtilsMessengerCreateInfoEXT createInfo = { };
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT 
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT 
+            | VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT;
+        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT 
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT
+            | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
+        createInfo.pfnUserCallback = cbDebugCallback;
+        createInfo.pUserData = nullptr;
+
+        VkResult result = pfnCreateDebugUtilsMessengerEXT(m_instance, &createInfo, nullptr, &m_debugMessenger);
+        R_ASSERT(result == VK_SUCCESS);
+
+        if (result != VK_SUCCESS)
+        {
+            R_ERROR("Vulkan", "Debug messenger failed to register! Validation can not be done!");            
+        }
+    }
+}
+
+void VulkanContext::unregisterValidationCallback()
+{
+    if (m_vulkanApiVersion >= VK_API_VERSION_1_1 && m_debugMessenger)
+    {
+        pfnDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+        m_debugMessenger = nullptr;
     }
 }
 
 VulkanContext::~VulkanContext()
 {
+    unregisterValidationCallback();
     destroy();
 }
 

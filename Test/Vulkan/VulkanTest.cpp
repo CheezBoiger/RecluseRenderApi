@@ -8,10 +8,10 @@ using namespace Recluse::RenderApi;
 
 TEST(VulkanTest, SimpleTest)
 {
-    Context::Description description;
-    description.flags = 0;
+    Context::Description description = { };
     description.applicationName = "Test";
     description.engineName = "TestEngine";
+    description.enableValidation = true;
     Context* context = Context::create(Api::Vulkan, description);
 
     ASSERT_NE(context, nullptr);
@@ -24,8 +24,7 @@ TEST(VulkanTest, SimpleTest)
 
 TEST(VulkanTest, EnumerateDevices)
 {
-    Context::Description description;
-    description.flags = 0;
+    Context::Description description = { };
     description.applicationName = "Test";
     description.engineName = "TestEngine";
     Context* context = Context::create(Api::Vulkan, description);

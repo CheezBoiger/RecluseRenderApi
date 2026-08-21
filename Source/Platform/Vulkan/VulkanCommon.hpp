@@ -13,9 +13,13 @@
 
 #include <vulkan/vulkan.h>
 
+#define R_VULKAN_API_VERSION(major, minor, patch) VK_MAKE_API_VERSION(0, major, minor, patch) 
+#define R_VULKAN_DEFAULT_VERSION() VK_API_VERSION_1_1
+
 namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
+
 
 } // Vulkan
 } // RenderApi

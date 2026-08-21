@@ -12,9 +12,9 @@ class Device;
 
 struct DeviceDescription
 {
-    B32 enableDebugLayer : 1;
-    B32 enableGpuValidation : 1;
-    B32 reserved : 30;
+    B32 enableMeshShaders : 1;
+    B32 enableRayTracing : 1;
+    B32 reserved : 28;
 };
 
 class Adapter : public IApiObject

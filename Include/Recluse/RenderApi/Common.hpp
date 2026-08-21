@@ -30,11 +30,9 @@ enum class Api : u32
 enum FeatureFlag
 {
     FeatureFlag_None = 0,
-    FeatureFlag_Raytracing = 1 << 0,
-    FeatureFlag_MeshShader = 1 << 1,
-    FeatureFlag_DebugMarkers = 1 << 2,
-    FeatureFlag_Validation = 1 << 3,
-    FeatureFlag_ApiDump = 1 << 4,
+    FeatureFlag_EnableDebugMarkers = 1 << 2,
+    FeatureFlag_EnableValidation = 1 << 3,
+    FeatureFlag_EnableApiDump = 1 << 4,
 };
 
 typedef u32 FeatureFlags;

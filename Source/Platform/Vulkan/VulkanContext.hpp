@@ -29,10 +29,21 @@ public:
 
     Bool            isValid() const override;
 
+    uint32_t        getApiVersion() const { return m_vulkanApiVersion; }
+
 private:
+    void            queryCallbacks();
+    void            registerValidationCallback();
+    void            unregisterValidationCallback();
+
     // Instance for vulkan.
-    VkInstance      m_instance;
-    uint32_t        m_totalPhysicalDevices;
+    VkInstance                          m_instance;
+    uint32_t                            m_totalPhysicalDevices;
+    uint32_t                            m_vulkanApiVersion;
+
+    VkDebugUtilsMessengerEXT            m_debugMessenger;
+    PFN_vkCreateDebugUtilsMessengerEXT  pfnCreateDebugUtilsMessengerEXT;
+    PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT;
 };
 } // Vulkan
 } // RenderApi

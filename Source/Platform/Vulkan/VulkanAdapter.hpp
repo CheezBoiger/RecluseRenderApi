@@ -17,7 +17,7 @@ namespace Vulkan {
 class RecluseRenderApi_PUBLIC_API VulkanAdapter : public Adapter
 {
 public:
-    VulkanAdapter(VkPhysicalDevice physicalDevice = nullptr);
+    VulkanAdapter(VkPhysicalDevice physicalDevice = VK_NULL_HANDLE);
 
     virtual ResultCode  queryInformation(Information* info) override;
     virtual Bool        supportsFeature(FeatureFlag feature) override;
@@ -28,8 +28,17 @@ public:
 
     VkPhysicalDevice    operator()() const { return m_physicalDevice; }
     VkPhysicalDevice    get() const { return m_physicalDevice; }
+
+    VkPhysicalDeviceMemoryProperties getMemoryProperties() const;
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT getBudgetProperties() const;
+
 private:
-    VkPhysicalDevice    m_physicalDevice;
+
+    void initialize();
+
+    VkPhysicalDevice                            m_physicalDevice;
+    VkPhysicalDeviceMemoryProperties2           m_memoryProperties; // Static total memory for each memory heap. Doesn't take realtime into account.
+    VkPhysicalDeviceMemoryBudgetPropertiesEXT   m_memoryBudgets;    // this is realtime memory budgets that are taken into account.
 };
 } // Vulkan
 } // RenderApi
