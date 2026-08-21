@@ -65,7 +65,6 @@ enum ResourceType
 
 enum ResourceMemoryUsage
 {
-    ResourceMemoryUsage_Unknown,
     // Default is the default memory usage for the resource. This is typically GPU local memory, allowed to be written to by the GPU, but not CPU.
     ResourceMemoryUsage_Default,
     // Immutable is memory that is allocated on the GPU and initialized once, but cannot be written to by the CPU or GPU. 
