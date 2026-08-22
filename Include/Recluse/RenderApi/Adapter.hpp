@@ -26,6 +26,7 @@ public:
     {
         char        name[128];
         char        description[256];
+        const char* vendorName;
         U32         vendorId;
         U32         deviceId;
         U32         driverVersion;

@@ -7,7 +7,10 @@
 
 #include <Recluse/RenderApi/Adapter.hpp>
 #include <Recluse/RenderApi/Device.hpp>
+
 #include <RecluseRenderApi_exports.hpp>
+#include <vector>
+#include <map>
 
 namespace Recluse {
 namespace RenderApi {
@@ -18,13 +21,27 @@ class VulkanAdapter;
 class VulkanDevice : public Device
 {
 public:
-    VulkanDevice(VulkanAdapter* adapter, VkDevice device = VK_NULL_HANDLE);
+    struct QueueProperties
+    {
+        const static uint kBadIndex = ~0;
+        uint familyIndex = kBadIndex;
+        uint queueIndex = kBadIndex;
+    };
+
+    struct QueueIndices
+    {
+        QueueProperties graphics;
+        QueueProperties compute;
+        QueueProperties copy;
+    };
+
+    VulkanDevice(VulkanAdapter* adapter = nullptr, VkDevice device = VK_NULL_HANDLE, 
+        const QueueIndices& indices = { });
 
     ~VulkanDevice();
 
     virtual ResultCode  createResource(const Resource::Description& description, Resource** pResourceOut, 
         void* pInitialData, uint initialSizeBytes) override;
-    virtual ResultCode  createQueue(const Queue::Description& description, Queue** ppQueueOut) override;
     virtual ResultCode  createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) override;
 
     // Create a swapchain for presentation. Requires a created queue for this.
@@ -32,16 +49,26 @@ public:
 
     virtual ResultCode  freeSwapchain(Swapchain* swapchain) override;
     virtual ResultCode  freePipeline(Pipeline* pipeline) override;
-    virtual ResultCode  freeQueue(Queue* queue) override;
 
     VkDevice            operator()() const { return m_device; }
     VkDevice            get() const { return m_device; }
 
     VulkanAdapter*      getAdapter() const { return m_adapter; }
+    
+    void                release();
+
+    VkQueue             queryQueue(CommandQueueType queueType);
 
 private:
     VkDevice            m_device;
     VulkanAdapter*      m_adapter;
+
+    // Individual FamilyInfo Maps.
+    QueueIndices        m_queueIndices;
+
+    VkQueue             m_graphicsQueue;
+    VkQueue             m_computeQueue;
+    VkQueue             m_copyQueue;
 };
 } // Vulkan
 } // RenderApi

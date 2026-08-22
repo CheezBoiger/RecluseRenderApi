@@ -6,11 +6,31 @@ namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
-VulkanDevice::VulkanDevice(VulkanAdapter* adapter, VkDevice device)
+VulkanDevice::VulkanDevice(VulkanAdapter* adapter, VkDevice device, 
+    const QueueIndices& queueIndices)
     : m_device(device)
     , m_adapter(adapter)
+    , m_queueIndices(queueIndices)
+    , m_graphicsQueue(VK_NULL_HANDLE)
+    , m_computeQueue(VK_NULL_HANDLE)
+    , m_copyQueue(VK_NULL_HANDLE)
 {
     R_ASSERT(m_device != VK_NULL_HANDLE);
+
+    if (m_queueIndices.graphics.familyIndex != VulkanDevice::QueueProperties::kBadIndex)
+    {
+        vkGetDeviceQueue(m_device, m_queueIndices.graphics.familyIndex, m_queueIndices.graphics.queueIndex, &m_graphicsQueue);
+    }
+
+    if (m_queueIndices.compute.familyIndex != VulkanDevice::QueueProperties::kBadIndex)
+    {
+        vkGetDeviceQueue(m_device, m_queueIndices.compute.familyIndex, m_queueIndices.compute.queueIndex, &m_computeQueue);
+    }
+
+    if (m_queueIndices.copy.familyIndex != VulkanDevice::QueueProperties::kBadIndex)
+    {
+        vkGetDeviceQueue(m_device, m_queueIndices.copy.familyIndex, m_queueIndices.copy.queueIndex, &m_copyQueue);
+    }
 }
 
 VulkanDevice::~VulkanDevice()
@@ -18,13 +38,17 @@ VulkanDevice::~VulkanDevice()
     m_device = VK_NULL_HANDLE;
 }
 
-ResultCode VulkanDevice::createResource(const Resource::Description& description, Resource** resource,
-    void* pInitialData, uint initialSizeBytes)
+void VulkanDevice::release()
 {
-    return RecluseResult_NoImpl;
+    if (m_device)
+    {
+        vkDestroyDevice(m_device, nullptr);
+    }
+    m_device = VK_NULL_HANDLE;
 }
 
-ResultCode VulkanDevice::createQueue(const Queue::Description& description, Queue** queue)
+ResultCode VulkanDevice::createResource(const Resource::Description& description, Resource** resource,
+    void* pInitialData, uint initialSizeBytes)
 {
     return RecluseResult_NoImpl;
 }
@@ -49,10 +73,6 @@ ResultCode VulkanDevice::freePipeline(Pipeline* pipeline)
     return RecluseResult_NoImpl;
 }
 
-ResultCode VulkanDevice::freeQueue(Queue* queue)
-{
-    return RecluseResult_NoImpl;
-}
 } // Vulkan
 } // RenderApi 
 } // Recluse

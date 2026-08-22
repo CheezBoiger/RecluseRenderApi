@@ -1,6 +1,8 @@
 //
 #include "SupportGraph.hpp"
 
+#include <queue>
+
 namespace Recluse {
 
 Bool SupportGraph::addExtension(const std::string& extension, Extension::Type type)
@@ -61,9 +63,56 @@ std::vector<SupportGraph::DependencyInput> SupportGraph::getDependencies(const s
     return results;
 }
 
-std::vector<const char*> SupportGraph::queryAllExtensions(const std::vector<std::string>& requestedExtensions)
+std::vector<const char*> SupportGraph::queryAllExtensions(const std::vector<std::string>& requestedExtensions, Extension::Type type)
 {
     std::vector<const char*> extensions;
+    std::set<const char*> availableExts;
+    std::queue<Hash64> q;
+
+    // Load the queue for bfs.
+    for (const auto& str : requestedExtensions)
+    {
+        Hash64 h = recluseHashFast(str.data(), str.size());
+        q.push(h);
+    }
+
+    // Breadth-first search 
+    while (!q.empty())
+    {
+        Hash64 h = q.front();
+        q.pop();
+
+        auto extIt = extensionMap.find(h);
+        if (extIt != extensionMap.end())
+        {
+            if (extIt->second.type == type)
+            {
+                availableExts.insert(extIt->second.extension.c_str());
+            }
+        }
+
+        // Check for dependencies.
+        auto depIt = dependencyGraph.find(h);
+        if (depIt != dependencyGraph.end())
+        {
+            for (const auto& deph : depIt->second.dependencies)
+            {
+                extIt = extensionMap.find(deph.hash);
+                if (extIt != extensionMap.end())
+                {
+                    if (extIt->second.type == type)
+                    {
+                        Hash64 hh = recluseHashFast(extIt->second.extension.c_str(), extIt->second.extension.size());
+                        q.push(hh);
+                    }
+                }
+            }
+        }
+    }
+
+    extensions.resize(availableExts.size());
+    std::copy(availableExts.begin(), availableExts.end(), extensions.begin());
+
     return extensions;
 }
 } // Recluse

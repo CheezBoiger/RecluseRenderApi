@@ -20,18 +20,19 @@ class Device
 public:
     struct Description
     {
-        B32 enableMeshShaders : 1;
-        B32 enableRayTracing : 1;
-        B32 enableVariableRateShading : 1;
-        B32 enableSamplerFeedback : 1;
-        B32 reserved : 26;
+        B32                 enableMeshShaders : 1;
+        B32                 enableRayTracing : 1;
+        B32                 enableVariableRateShading : 1;
+        B32                 enableSamplerFeedback : 1;
+        B32                 reserved : 24;
+        CommandQueueType*   queueTypes;
+        u32                 queueTypeCount;
     };
 
     virtual ~Device() { }
     
     virtual ResultCode createResource(const Resource::Description& description, Resource** pResourceOut, 
         void* pInitialData = nullptr, uint initialSizeBytes = 0) = 0;
-    virtual ResultCode createQueue(const Queue::Description& description, Queue** ppQueueOut) = 0;
     virtual ResultCode createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) = 0;
 
     // Create a swapchain for presentation. Requires a created queue for this.
@@ -39,7 +40,6 @@ public:
 
     virtual ResultCode freeSwapchain(Swapchain* swapchain) = 0;
     virtual ResultCode freePipeline(Pipeline* pipeline) = 0;
-    virtual ResultCode freeQueue(Queue* queue) = 0;
 };
 } // RenderApi
 } // Recluse

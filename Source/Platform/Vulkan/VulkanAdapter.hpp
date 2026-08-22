@@ -9,6 +9,7 @@
 #include "VulkanCommon.hpp"
 
 #include <RecluseRenderApi_exports.hpp>
+#include <vector>
 
 namespace Recluse {
 namespace RenderApi { 
@@ -19,8 +20,9 @@ class VulkanContext;
 class RecluseRenderApi_PUBLIC_API VulkanAdapter : public Adapter
 {
 public:
-    static VkPhysicalDeviceProperties   gatherProperties(VkPhysicalDevice physicalDevice);
-    static Information                  gatherInformation(const VkPhysicalDeviceProperties& properties, uint index);
+    static VkPhysicalDeviceProperties           gatherProperties(VkPhysicalDevice physicalDevice);
+    static Information                          gatherInformation(const VkPhysicalDeviceProperties& properties, uint index);
+    static std::vector<VkExtensionProperties>   gatherExtensionProperties(VkPhysicalDevice physicalDevice);
 
     VulkanAdapter(VulkanContext* context = nullptr, VkPhysicalDevice physicalDevice = VK_NULL_HANDLE, uint adapterIndex = -1);
 

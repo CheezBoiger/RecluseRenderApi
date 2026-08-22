@@ -47,6 +47,9 @@ public:
     void begin();
     void end();
 
+    void clearRenderTarget(uint renderTargetIndex, F32 clearColor[4], const Rect& rect);
+    void clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 clearStencil, const Rect& rect); 
+
     void transitionResources(ResourceTransition* transitions, uint numTransitions);
     void transition(Resource* resource, ResourceState newState);
 

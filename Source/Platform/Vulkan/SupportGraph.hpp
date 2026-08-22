@@ -50,7 +50,7 @@ public:
     Bool                            linkDependencies(const std::string& extension, const std::vector<DependencyInput>& dependencies);
     std::vector<DependencyInput>    getDependencies(const std::string& extension, Extension::Type type);
 
-    std::vector<const char*> queryAllExtensions(const std::vector<std::string>& requestedExtensions);
+    std::vector<const char*>        queryAllExtensions(const std::vector<std::string>& requestedExtensions, Extension::Type type);
 
     SupportGraph& operator()(const std::string& extension, Extension::Type type)
     {

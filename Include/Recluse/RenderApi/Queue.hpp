@@ -11,8 +11,6 @@
 namespace Recluse {
 namespace RenderApi {
 
-typedef u32 Fence;
-
 struct SubmitDescription
 {
     Fence*          pWaitFences;        // Fences to wait on before executing the command list.
@@ -28,7 +26,7 @@ class Queue
 public:
     struct Description
     {
-        CommandTypeFlags typeFlags = CommandTypeFlag_Direct;
+        CommandQueueType type;
     };
 
     // Submit the render command list.

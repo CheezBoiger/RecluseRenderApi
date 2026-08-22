@@ -6,6 +6,13 @@
 
 #include <Recluse/Types.hpp>
 
+// Vendor IDs
+#define NVIDIA_VENDOR_ID        0x10DE
+#define INTEL_VENDOR_ID         0x8086
+#define AMD_VENDOR_ID           0x1022
+#define MSFT_VENDOR_ID          0x1414
+#define QUALCOMM_VENDOR_ID      0x5143
+
 namespace Recluse {
 namespace RenderApi {
 
@@ -14,6 +21,7 @@ typedef U32 ResourceId;
 typedef U32 SamplerId;
 
 typedef U64 ResourceViewId;
+typedef u64 Fence;
 
 enum class Api : u32
 {
@@ -146,16 +154,57 @@ struct ResourceViewDescription
     uint                    depthOrArraySize;
 };
 
-enum CommandTypeFlag
+enum CommandQueueType
 {
-    CommandTypeFlag_Unknown,
-    CommandTypeFlag_Graphics = 1 << 0,
-    CommandTypeFlag_Compute = 1 << 1,
-    CommandTypeFlag_Copy = 1 << 2,
-    CommandTypeFlag_Direct = (CommandTypeFlag_Compute | CommandTypeFlag_Copy | CommandTypeFlag_Graphics),
+    // Graphics queue. This is default.
+    CommandQueueType_Graphics,
+    // Asyncronous compute queue type.
+    CommandQueueType_Compute,
+    // Asyncronous copy queue type.
+    CommandQueueType_Copy,
 };
 
-typedef u32 CommandTypeFlags;
+enum IndexType 
+{
+    IndexType_Unsigned16,
+    IndexType_Unsigned32
+};
+
+
+struct Viewport 
+{
+    F32 x;
+    F32 y;
+    F32 width;
+    F32 height;
+    F32 minDepth;
+    F32 maxDepth;
+};
+
+// Rectangle structure.
+// x is the offset of the rectangle in x position
+// y is the offset of the rectangle in y position
+// width is the overall width extent of the rectangle.
+// height is the overall height extent of the rectangle.
+struct Rect 
+{
+    F32 x, 
+        y, 
+        width, 
+        height;
+};
+
+
+enum ClearFlag
+{
+    ClearFlag_None = 0,
+    ClearFlag_Color = 0x001,
+    ClearFlag_Depth = 0x002,
+    ClearFlag_Stencil = 0x004
+};
+
+
+typedef U32 ClearFlags;
 
 struct IApiObject
 {

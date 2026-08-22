@@ -129,6 +129,14 @@ TEST(VulkanTest, CreateDevice)
     EXPECT_EQ(adapter->isValid(), true);
 
     Device::Description deviceDesc = { };
+    deviceDesc.enableMeshShaders = true;
+    deviceDesc.enableRayTracing = true;
+    deviceDesc.enableVariableRateShading = true;
+
+    CommandQueueType queues[] = { CommandQueueType_Compute, CommandQueueType_Graphics, CommandQueueType_Copy };
+    deviceDesc.queueTypes = queues;
+    deviceDesc.queueTypeCount = 3;
+
     Device* device = adapter->createDevice(deviceDesc);
     EXPECT_NE(device, nullptr); 
 
