@@ -25,24 +25,34 @@ public:
 
     struct FrameDescription
     {
+        // The swapchain to process.
         Swapchain* swapchain = nullptr;
     };
 
     struct Description
     {
+        // The max number of frames that can be in process on the device.
         uint maxFramesInFlight;
+
+        // The number of threads that can process a certain number of command lists at a time.
+        // Usually intended to work in parallel as much as possible.
         uint numCommandListJobThreads;
     };
 
-    virtual ResultCode                  submitCommandLists(CommandQueueType type, CommandList** lists, uint numCommandLists) = 0;
+    // Submit command lists to the frame process, must be called while frame has begun processing.
+    virtual ResultCode                  submitCommandLists(CommandQueueType type, CommandList* lists, uint numCommandLists) = 0;
 
     // Begins a frame to process.
     virtual void                        beginFrame(const FrameDescription& frameDescription) = 0;
 
-    // Ends a frame, and produces a handle output that is ready to be processed.
+    // Ends a frame, and produces a handle output that is ready to be processed. Intended to be executed in the 
+    // device queue.
     virtual FrameHandle                 endFrame() = 0;
 
+    // Waits for any fences in the process.
     virtual ResultCode                  waitForFences(Fence* fences, uint numFences) = 0;
+
+    // 
     virtual ResultCode                  signalFences(Fence* fences, uint numFences) = 0;
 };
 

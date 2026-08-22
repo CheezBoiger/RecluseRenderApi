@@ -221,6 +221,39 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
     m_chunk.sizeBytes += sizeBytes;
 }
 
+void CommandList::clearRenderTarget(uint renderTargetIndex, const F32 clearColor[4], const Rect& rect)
+{
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<ClearRenderTargetHeader>());
+    header->opcode = CommandOpcode_ClearRenderTarget;
+    header->size = sizeof(ClearRenderTargetHeader);
+    
+    ClearRenderTargetHeader* clearRenderTargetHeader = CommandHeader::dataOffset<ClearRenderTargetHeader>(header);
+    clearRenderTargetHeader->clearColor[0] = clearColor[0];
+    clearRenderTargetHeader->clearColor[1] = clearColor[1];
+    clearRenderTargetHeader->clearColor[2] = clearColor[2];
+    clearRenderTargetHeader->clearColor[3] = clearColor[3];
+    
+    clearRenderTargetHeader->rect = rect;
+    clearRenderTargetHeader->renderTargetIndex = renderTargetIndex;
+
+    m_chunk.sizeBytes += CommandHeader::dataSize<ClearRenderTargetHeader>();
+}
+
+void CommandList::clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 clearStencil, const Rect& rect)
+{
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<ClearDepthStencilHeader>());
+    header->opcode = CommandOpcode_ClearDepthStencil;
+    header->size = sizeof(ClearDepthStencilHeader);
+
+    ClearDepthStencilHeader* clearDepthStencilHeader = CommandHeader::dataOffset<ClearDepthStencilHeader>(header);
+    clearDepthStencilHeader->rect = rect;
+    clearDepthStencilHeader->clearFlags = clearFlags;
+    clearDepthStencilHeader->clearDepth = clearDepth;
+    clearDepthStencilHeader->clearStencil = clearStencil;
+
+    m_chunk.sizeBytes += CommandHeader::dataSize<ClearDepthStencilHeader>();
+}
+
 void CommandList::reset()
 {
     m_commandAllocator.clear();

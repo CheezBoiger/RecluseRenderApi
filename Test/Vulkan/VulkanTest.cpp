@@ -1,5 +1,6 @@
 #include <Recluse/RenderApi/Context.hpp>
 #include <Recluse/RenderApi/Adapter.hpp>
+#include <Recluse/RenderApi/Resource.hpp>
 
 #include <Recluse/System/Window.hpp>
 #include <Recluse/System/Input.hpp>
@@ -165,11 +166,31 @@ TEST(VulkanTest, CreateDevice)
         if (i == 10000)
             window->close();
     }
+
     //FrameProcess* frameProcessor = device->createFrameProcess();
     //ASSERT_NE(frameProcessor, nullptr);
-    //
+
+    //// Swapchain    
     //FrameProcess::FrameDescription frameDescription;
+    //frameDescription.swapchain = swapchain;
+
     //frameProcessor->beginFrame(frameDescription);
+    //CommandList commandlist;
+    //commandlist.begin();
+
+    //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
+    //
+    //ResourceViewDescription viewDesc = { };
+    //ResourceViewId id = swapchain->currentBackbuffer()->asView(viewDesc);
+    //commandlist.bindRenderTargets(&id, 1, 0);
+    //f32 co[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    //commandlist.clearRenderTarget(0, co, { });
+    //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
+
+    //commandlist.end();
+
+    //frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);
+
     //device->processFrame(frameProcessor->endFrame());
 
     

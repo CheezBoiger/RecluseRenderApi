@@ -141,6 +141,7 @@ enum ResourceState
     ResourceState_IndirectBuffer,
     ResourceState_DepthStencil,
     ResourceState_UnorderedAccess,
+    ResourceState_Present,
 };
 
 enum ResourceViewType

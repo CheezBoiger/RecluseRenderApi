@@ -26,6 +26,9 @@ enum CommandOpcode : u16
     CommandOpcode_BindSamplerTable,
     CommandOpcode_BindRenderTargets,
 
+    CommandOpcode_ClearRenderTarget,
+    CommandOpcode_ClearDepthStencil,
+
     CommandOpcode_Dispatch,
     CommandOpcode_CopyResource,
     CommandOpcode_CopySubresource,
@@ -140,6 +143,21 @@ struct BarrierTransitionHeader
 struct BundlesHeader
 {
     uint numBundles;
+};
+
+struct ClearRenderTargetHeader
+{
+    Rect rect;
+    F32  clearColor[4];
+    uint renderTargetIndex;
+};
+
+struct ClearDepthStencilHeader
+{
+    Rect        rect;
+    ClearFlags  clearFlags;
+    F32         clearDepth;
+    U8          clearStencil;
 };
 } // RenderApi
 } // Recluse
