@@ -6,6 +6,7 @@
 #include "VulkanCommon.hpp"
 
 #include <RecluseRenderApi_exports.hpp>
+#include <map>
 
 namespace Recluse {
 namespace RenderApi {
@@ -31,10 +32,14 @@ public:
 
     uint32_t        getApiVersion() const { return m_vulkanApiVersion; }
 
+    VkSurfaceKHR    makeSurface(WindowHandle handle);
+
 private:
+
     void            queryCallbacks();
     void            registerValidationCallback();
     void            unregisterValidationCallback();
+    void            cleanUpSurfaces();
 
     // Instance for vulkan.
     VkInstance                          m_instance;
@@ -44,6 +49,8 @@ private:
     VkDebugUtilsMessengerEXT            m_debugMessenger;
     PFN_vkCreateDebugUtilsMessengerEXT  pfnCreateDebugUtilsMessengerEXT;
     PFN_vkDestroyDebugUtilsMessengerEXT pfnDestroyDebugUtilsMessengerEXT;
+
+    std::map<WindowHandle, VkSurfaceKHR> m_surfaceMap;
 };
 } // Vulkan
 } // RenderApi

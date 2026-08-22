@@ -13,33 +13,35 @@ namespace RenderApi {
 
 class Resource;
 
-struct SwapchainCreateDescription
-{
-    typedef void* WindowHandle;
-
-    Queue*          pQueue;         // The queue that the swapchain instance will be referencing for presentation.
-    uint            renderWidth;    // The width of the swapchain image.
-    uint            renderHeight;   // The height of the swapchain image.
-    uint            format;         // Format for the swapchain.
-    uint            numFrames;      // The number of swapchain images/frames.
-    WindowHandle    windowHandle;    // The window handle that the swapchain will be presenting to.
-};
-
-class Swapchain
+class Swapchain : public IApiObject
 {
 public:
-    
-    // Submit a present to the given queue.
-    virtual ResultCode present() = 0;
+    enum PresentMode
+    {
+        PresentMode_Immediate,
+        PresentMode_NoVSync = PresentMode_Immediate,
+        // Vertical Synchronization
+        PresentMode_VSync,
+        PresentMode_DoubleBuffering = PresentMode_VSync,
+        PresentMode_TripleBuffering
+    };
 
-    virtual ResultCode rebuild(const SwapchainCreateDescription& description) = 0;
+    struct Description
+    {
+        uint                renderWidth;    // The width of the swapchain image.
+        uint                renderHeight;   // The height of the swapchain image.
+        ResourceFormat      format;         // Format for the swapchain.
+        ColorSpace          colorSpace;     // Desired color space.
+        uint                numFrames;      // The number of swapchain images/frames.
+        WindowHandle        windowHandle;   // The window handle that the swapchain will be presenting to.
+        ResourceUsageFlags  usage;          // Swapchain usages, if they are supported.
+        PresentMode         presentMode;
+    };
 
-    virtual Resource* current() = 0;
-
-    virtual SwapchainCreateDescription getDescription() = 0;
-
-private:
-    
+    virtual ResultCode                  rebuild(const Description& description) = 0;
+    // Get the current backbuffer.
+    virtual Resource*                   currentBackbuffer() = 0;
+    virtual Description                 getDescription() = 0;
 };
 } // RenderApi
 } // Recluse

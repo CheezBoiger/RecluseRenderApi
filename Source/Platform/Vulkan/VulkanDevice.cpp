@@ -1,5 +1,8 @@
 #include "VulkanDevice.hpp"
 #include "VulkanAdapter.hpp"
+#include "VulkanSwapchain.hpp"
+#include "VulkanContext.hpp"
+
 #include <Recluse/Messaging.hpp>
 
 namespace Recluse {
@@ -47,25 +50,45 @@ void VulkanDevice::release()
     m_device = VK_NULL_HANDLE;
 }
 
-ResultCode VulkanDevice::createResource(const Resource::Description& description, Resource** resource,
+Resource* VulkanDevice::createResource(const Resource::Description& description,
     void* pInitialData, uint initialSizeBytes)
 {
-    return RecluseResult_NoImpl;
+    return nullptr;
 }
 
-ResultCode VulkanDevice::createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut)
+Pipeline* VulkanDevice::createPipeline(const PipelineDescription& description)
 {
-    return RecluseResult_NoImpl;
+    return nullptr;
 }
 
-ResultCode VulkanDevice::createSwapchain(const SwapchainCreateDescription& description, Swapchain** ppSwapchain)
+Swapchain* VulkanDevice::createSwapchain(const Swapchain::Description& description)
 {
-    return RecluseResult_NoImpl;
+    VkSurfaceKHR surface = getAdapter()->getContext()->makeSurface(description.windowHandle);
+    auto it = m_swapchainMap.find(surface);
+    if (it == m_swapchainMap.end())
+    {
+        m_swapchainMap.insert(std::make_pair(surface, VulkanSwapchain(this, surface, description)));
+        return &m_swapchainMap[surface];
+    }
+    return nullptr;
 }
 
 ResultCode VulkanDevice::freeSwapchain(Swapchain* swapchain)
 {
-    return RecluseResult_NoImpl;
+    if (!swapchain) return RecluseResult_NullPtrExcept;
+    VulkanSwapchain* native = dynamic_cast<VulkanSwapchain*>(swapchain);
+    if (native)
+    {
+        VkSurfaceKHR surface = native->getSurface();
+        auto it = m_swapchainMap.find(surface);
+        if (it != m_swapchainMap.end())
+        {
+            it->second.release();
+            m_swapchainMap.erase(it);
+            return RecluseResult_Ok;
+        }
+    }
+    return RecluseResult_NotFound;
 }
 
 ResultCode VulkanDevice::freePipeline(Pipeline* pipeline)
@@ -73,6 +96,52 @@ ResultCode VulkanDevice::freePipeline(Pipeline* pipeline)
     return RecluseResult_NoImpl;
 }
 
+Fence VulkanDevice::createFence()
+{
+    R_ASSERT(m_device);
+    VkFenceCreateInfo info = { };
+    VkFence fence = internalCreateFence(info);
+    return reinterpret_cast<Fence>(fence);
+}
+
+ResultCode VulkanDevice::freeFence(Fence fence)
+{
+    if (fence == 0) return RecluseResult_NullPtrExcept;
+    VkFence vkfence = reinterpret_cast<VkFence>(fence);
+    internalFreeFence(vkfence);
+    return RecluseResult_Ok;
+}
+
+VkFence VulkanDevice::internalCreateFence(const VkFenceCreateInfo& ci)
+{
+    VkFence fence = VK_NULL_HANDLE;
+    VkResult result = vkCreateFence(m_device, &ci, nullptr, &fence);
+    R_ASSERT(result == VK_SUCCESS);
+    return fence;
+}
+
+void VulkanDevice::internalFreeFence(VkFence fence)
+{
+    R_ASSERT(m_device != VK_NULL_HANDLE);
+    R_ASSERT(fence != VK_NULL_HANDLE);
+
+    vkDestroyFence(m_device, fence, nullptr);
+}
+
+FrameProcess* VulkanDevice::createFrameProcess(const FrameProcess::Description& description)
+{
+    return nullptr;
+}
+
+ResultCode VulkanDevice::freeFrameProcess(FrameProcess* frameProcess)
+{
+    return RecluseResult_NoImpl;
+}
+
+ResultCode VulkanDevice::processFrame(FrameHandle frame)
+{
+    return RecluseResult_NoImpl;
+}
 } // Vulkan
 } // RenderApi 
 } // Recluse

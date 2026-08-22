@@ -5,6 +5,8 @@
 #include <Recluse/Arch.hpp>
 #include <Recluse/Types.hpp>
 
+#include <Recluse/RenderApi/Common.hpp>
+
 #if defined(RECLUSE_WINDOWS)
     #define VK_USE_PLATFORM_WIN32_KHR 1
 #elif defined(RECLUSE_LINUX)
@@ -20,7 +22,8 @@ namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
-
+extern VkFormat                 getVulkanFormat(ResourceFormat format);
+extern ResourceFormat           getResourceFormat(VkFormat format);
 } // Vulkan
 } // RenderApi
 } // Recluse

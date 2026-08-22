@@ -362,8 +362,52 @@ Bool VulkanContext::isValid() const
     return (m_instance != VK_NULL_HANDLE);
 }
 
+VkSurfaceKHR VulkanContext::makeSurface(WindowHandle handle)
+{
+    VkSurfaceKHR surface = VK_NULL_HANDLE;
+    VkResult result = VK_SUCCESS;
+    
+   if (!handle) return surface;
+
+    auto it = m_surfaceMap.find(handle);
+    if (it == m_surfaceMap.end())
+    {
+#if defined(RECLUSE_WINDOWS)
+        VkWin32SurfaceCreateInfoKHR ci = { };
+        ci.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+        ci.hinstance = GetModuleHandle(NULL);
+        ci.hwnd = (HWND)handle;
+        ci.pNext = nullptr;
+        VkResult result = vkCreateWin32SurfaceKHR(m_instance, &ci, nullptr, &surface);
+#elif defined(RECLUSE_LINUX)
+        // No impl, yet...
+#else
+        // should error on there.
+#endif
+        // Store it once finished.
+        if (result == VK_SUCCESS)
+            m_surfaceMap.insert(std::make_pair(handle, surface));
+    }
+    else
+    {
+        surface = it->second;
+    }
+
+    return surface;
+}
+
+void VulkanContext::cleanUpSurfaces()
+{
+    for (auto& it : m_surfaceMap)
+    {
+        vkDestroySurfaceKHR(m_instance, it.second, nullptr);
+    }
+    m_surfaceMap.clear();
+}
+
 ResultCode VulkanContext::destroy()
 {
+    cleanUpSurfaces();
     if (m_instance)
     {
         vkDestroyInstance(m_instance, nullptr);

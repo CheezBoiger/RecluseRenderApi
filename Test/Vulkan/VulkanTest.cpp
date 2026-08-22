@@ -1,6 +1,10 @@
 #include <Recluse/RenderApi/Context.hpp>
 #include <Recluse/RenderApi/Adapter.hpp>
 
+#include <Recluse/System/Window.hpp>
+#include <Recluse/System/Input.hpp>
+#include <Recluse/Logger.hpp>
+
 #include <gtest/gtest.h>
 
 using namespace Recluse;
@@ -93,6 +97,10 @@ TEST(VulkanTest, CreateAdapter)
 
 TEST(VulkanTest, CreateDevice)
 {
+    LogSystem::initializeLoggingSystem();
+    Window* window = Window::create("Test", 0, 0, 960, 620);
+    window->setToCenter();
+    window->show();
     Context* context = nullptr;
     Adapter* adapter = nullptr;
     {
@@ -129,18 +137,46 @@ TEST(VulkanTest, CreateDevice)
     EXPECT_EQ(adapter->isValid(), true);
 
     Device::Description deviceDesc = { };
-    deviceDesc.enableMeshShaders = true;
-    deviceDesc.enableRayTracing = true;
-    deviceDesc.enableVariableRateShading = true;
-
     CommandQueueType queues[] = { CommandQueueType_Compute, CommandQueueType_Graphics, CommandQueueType_Copy };
     deviceDesc.queueTypes = queues;
     deviceDesc.queueTypeCount = 3;
-
+    deviceDesc.enableMeshShaders = true;
     Device* device = adapter->createDevice(deviceDesc);
     EXPECT_NE(device, nullptr); 
 
+    Swapchain::Description swapchainDesc = { };
+    swapchainDesc.renderWidth = window->getWidth();
+    swapchainDesc.renderHeight = window->getHeight();
+    swapchainDesc.format = ResourceFormat_R8G8B8A8_Unorm;
+    swapchainDesc.numFrames = 2;
+    swapchainDesc.usage = 0;
+    swapchainDesc.presentMode = Swapchain::PresentMode_VSync;
+    swapchainDesc.windowHandle = window->getNativeHandle();
+    
+    Swapchain* swapchain = device->createSwapchain(swapchainDesc);
+    EXPECT_NE(swapchain, nullptr);
+
+    int i = 0;
+    while (!window->shouldClose())
+    {
+        pollEvents();
+        i++;
+
+        if (i == 10000)
+            window->close();
+    }
+    //FrameProcess* frameProcessor = device->createFrameProcess();
+    //ASSERT_NE(frameProcessor, nullptr);
+    //
+    //FrameProcess::FrameDescription frameDescription;
+    //frameProcessor->beginFrame(frameDescription);
+    //device->processFrame(frameProcessor->endFrame());
+
+    
+    EXPECT_EQ(device->freeSwapchain(swapchain), RecluseResult_Ok);
     EXPECT_EQ(adapter->freeDevice(device), RecluseResult_Ok);
     ASSERT_EQ(context->freeAdapter(adapter), RecluseResult_Ok);
     Context::free(context);
+    Window::destroy(window);
+    LogSystem::destroyLoggingSystem();
 }

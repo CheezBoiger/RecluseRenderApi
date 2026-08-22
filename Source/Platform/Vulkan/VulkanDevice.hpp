@@ -4,6 +4,7 @@
 #pragma once
 
 #include "VulkanCommon.hpp"
+#include "VulkanSwapchain.hpp"
 
 #include <Recluse/RenderApi/Adapter.hpp>
 #include <Recluse/RenderApi/Device.hpp>
@@ -18,7 +19,7 @@ namespace Vulkan {
 
 class VulkanAdapter;
 
-class VulkanDevice : public Device
+class RecluseRenderApi_PUBLIC_API VulkanDevice : public Device
 {
 public:
     struct QueueProperties
@@ -40,35 +41,46 @@ public:
 
     ~VulkanDevice();
 
-    virtual ResultCode  createResource(const Resource::Description& description, Resource** pResourceOut, 
+    virtual Resource*       createResource(const Resource::Description& description, 
         void* pInitialData, uint initialSizeBytes) override;
-    virtual ResultCode  createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) override;
+    virtual Pipeline*       createPipeline(const PipelineDescription& description) override;
+    virtual Fence           createFence() override;
 
     // Create a swapchain for presentation. Requires a created queue for this.
-    virtual ResultCode  createSwapchain(const SwapchainCreateDescription& description, Swapchain** ppSwapchainOut) override;
+    virtual Swapchain*      createSwapchain(const Swapchain::Description& description) override;
 
-    virtual ResultCode  freeSwapchain(Swapchain* swapchain) override;
-    virtual ResultCode  freePipeline(Pipeline* pipeline) override;
+    virtual ResultCode      freeSwapchain(Swapchain* swapchain) override;
+    virtual ResultCode      freePipeline(Pipeline* pipeline) override;
+    virtual ResultCode      freeFence(Fence fence) override;
 
-    VkDevice            operator()() const { return m_device; }
-    VkDevice            get() const { return m_device; }
+    virtual FrameProcess*   createFrameProcess(const FrameProcess::Description& description) override;
+    virtual ResultCode      freeFrameProcess(FrameProcess* frameProcess) override;
+    virtual ResultCode      processFrame(FrameHandle frame) override;
 
-    VulkanAdapter*      getAdapter() const { return m_adapter; }
+    VkDevice                operator()() const { return m_device; }
+    VkDevice                get() const { return m_device; }
+
+    VulkanAdapter*          getAdapter() const { return m_adapter; }
     
-    void                release();
+    void                    release();
 
-    VkQueue             queryQueue(CommandQueueType queueType);
+    VkQueue                 queryQueue(CommandQueueType queueType);
+
+    VkFence                 internalCreateFence(const VkFenceCreateInfo& ci); 
+    void                    internalFreeFence(VkFence fence);
 
 private:
-    VkDevice            m_device;
-    VulkanAdapter*      m_adapter;
+    VkDevice                m_device;
+    VulkanAdapter*          m_adapter;
 
     // Individual FamilyInfo Maps.
-    QueueIndices        m_queueIndices;
+    QueueIndices            m_queueIndices;
 
-    VkQueue             m_graphicsQueue;
-    VkQueue             m_computeQueue;
-    VkQueue             m_copyQueue;
+    VkQueue                 m_graphicsQueue;
+    VkQueue                 m_computeQueue;
+    VkQueue                 m_copyQueue;
+
+    std::map<VkSurfaceKHR, VulkanSwapchain> m_swapchainMap;
 };
 } // Vulkan
 } // RenderApi

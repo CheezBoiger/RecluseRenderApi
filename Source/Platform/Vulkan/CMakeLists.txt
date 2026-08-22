@@ -14,6 +14,10 @@ set(RECLUSE_VULKAN_FILES
 	${RECLUSE_VULKAN_PATH}/SupportGraph.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanDevice.hpp
 	${RECLUSE_VULKAN_PATH}/VulkanDevice.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanFrameProcess.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanFrameProcess.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanSwapchain.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanSwapchain.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanContext.hpp
 	${RECLUSE_VULKAN_PATH}/VulkanContext.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanAdapter.hpp

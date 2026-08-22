@@ -36,7 +36,6 @@ public:
     };
     
     virtual ResultCode  queryInformation(Information* info) = 0;
-    virtual Bool        supportsFeature(FeatureFlag feature) = 0;
     virtual Device*     createDevice(const Device::Description& desc) = 0;
 
     virtual ResultCode  freeDevice(Device* device) = 0;

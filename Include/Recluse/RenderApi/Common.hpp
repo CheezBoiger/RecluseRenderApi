@@ -16,12 +16,13 @@
 namespace Recluse {
 namespace RenderApi {
 
-typedef U32 PipelineId;
-typedef U32 ResourceId;
-typedef U32 SamplerId;
+typedef U32     PipelineId;
+typedef U32     ResourceId;
+typedef U32     SamplerId;
 
-typedef U64 ResourceViewId;
-typedef u64 Fence;
+typedef U64     ResourceViewId;
+typedef UPtr    Fence;
+typedef void*   WindowHandle;
 
 enum class Api : u32
 {
@@ -34,26 +35,43 @@ enum class Api : u32
     SoftwareRaytrace,
 };
 
-
-enum FeatureFlag
-{
-    FeatureFlag_None = 0,
-    FeatureFlag_EnableDebugMarkers = 1 << 2,
-    FeatureFlag_EnableValidation = 1 << 3,
-    FeatureFlag_EnableApiDump = 1 << 4,
-};
-
-typedef u32 FeatureFlags;
-
 enum ResourceFormat
 {
     ResourceFormat_Unknown,
-    ResourceFormat_R8G8B8A8_UNORM,
-    ResourceFormat_R8G8B8A8_SNORM,
-    ResourceFormat_R16G16B16A16_FLOAT,
-    ResourceFormat_R32G32B32A32_FLOAT,
-    ResourceFormat_D24_UNORM_S8_UINT,
-    ResourceFormat_D32_FLOAT_S8X24_UINT,
+    ResourceFormat_R8G8B8A8_Unorm,
+    ResourceFormat_R16G16B16A16_Float,
+    ResourceFormat_R11G11B10_Float,
+    ResourceFormat_D32_Float,
+    ResourceFormat_R32_Float,
+    ResourceFormat_D16_Unorm,
+    ResourceFormat_D24_Unorm_S8_Uint,
+    ResourceFormat_D32_Float_S8_Uint,
+    ResourceFormat_R24_Unorm_X8_Typeless,
+    ResourceFormat_X24_Typeless_S8_Uint,
+    ResourceFormat_R16G16_Float,
+    ResourceFormat_B8G8R8A8_Srgb,
+    ResourceFormat_R32G32B32A32_Float,
+    ResourceFormat_R32G32B32A32_Uint,
+    ResourceFormat_R8_Uint,
+    ResourceFormat_R32G32_Float,
+    ResourceFormat_R32G32_Uint,
+    ResourceFormat_R16_Uint,
+    ResourceFormat_R16_Float,
+    ResourceFormat_B8G8R8A8_Unorm,
+    ResourceFormat_R32G32B32_Float,
+    ResourceFormat_R32_Uint,
+    ResourceFormat_R32_Int,
+    ResourceFormat_BC1_Unorm,
+    ResourceFormat_BC2_Unorm,
+    ResourceFormat_BC3_Unorm,
+    ResourceFormat_BC4_Unorm,
+    ResourceFormat_BC5_Unorm,
+    ResourceFormat_BC7_Unorm,
+};
+
+enum ColorSpace
+{
+    ColorSpace_Unknown,
 };
 
 
@@ -94,13 +112,13 @@ enum ResourceUsage
     ResourceUsage_RenderTarget          = (1 << 2),
     ResourceUsage_ShaderResource        = (1 << 3),
     ResourceUsage_ConstantBuffer        = (1 << 4),
-    ResourceUsage_TransferDestination   = (1 << 5),
-    ResourceUsage_TransferSource        = (1 << 6),
-    ResourceUsage_IndirectBuffer        = (1 << 7),
-    ResourceUsage_DepthStencil          = (1 << 8),
-    ResourceUsage_UnorderedAccess       = (1 << 9),
-    ResourceUsage_AccelerationStructure = (1 << 10)
+    ResourceUsage_IndirectBuffer        = (1 << 5),
+    ResourceUsage_DepthStencil          = (1 << 6),
+    ResourceUsage_UnorderedAccess       = (1 << 7),
+    ResourceUsage_AccelerationStructure = (1 << 8)
 };
+
+typedef U32 ResourceUsageFlags;
 
 struct DescriptorSet
 {

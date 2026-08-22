@@ -1,6 +1,6 @@
 //
 #include <Recluse/RenderApi/Context.hpp>
-
+#include <Recluse/RenderApi/Device.hpp>
 #include <Recluse/System/DLLLoader.hpp>
 #include <Recluse/Messaging.hpp>
 

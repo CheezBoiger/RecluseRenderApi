@@ -13,6 +13,38 @@ namespace Recluse {
 namespace RenderApi {
 
 class Queue;
+class CommandList;
+
+typedef UPtr FrameHandle;
+
+// FrameProcess is an object that handles the process of a frame, essential for 
+// managing the structure of the overall rendering process.
+class FrameProcess
+{
+public:
+
+    struct FrameDescription
+    {
+        Swapchain* swapchain = nullptr;
+    };
+
+    struct Description
+    {
+        uint maxFramesInFlight;
+        uint numCommandListJobThreads;
+    };
+
+    virtual ResultCode                  submitCommandLists(CommandQueueType type, CommandList** lists, uint numCommandLists) = 0;
+
+    // Begins a frame to process.
+    virtual void                        beginFrame(const FrameDescription& frameDescription) = 0;
+
+    // Ends a frame, and produces a handle output that is ready to be processed.
+    virtual FrameHandle                 endFrame() = 0;
+
+    virtual ResultCode                  waitForFences(Fence* fences, uint numFences) = 0;
+    virtual ResultCode                  signalFences(Fence* fences, uint numFences) = 0;
+};
 
 // Device is the logical instance that is created by the physical device itself (the adapter.)
 class Device
@@ -30,16 +62,23 @@ public:
     };
 
     virtual ~Device() { }
-    
-    virtual ResultCode createResource(const Resource::Description& description, Resource** pResourceOut, 
-        void* pInitialData = nullptr, uint initialSizeBytes = 0) = 0;
-    virtual ResultCode createPipeline(const PipelineDescription& description, Pipeline** pPipelineOut) = 0;
+
+    virtual FrameProcess*   createFrameProcess(const FrameProcess::Description& description = { }) = 0;
+    virtual Resource*       createResource(const Resource::Description& description, void* pInitialData = nullptr, uint initialSizeBytes = 0) = 0;
+    virtual Pipeline*       createPipeline(const PipelineDescription& description) = 0;
+    virtual Fence           createFence() = 0;
 
     // Create a swapchain for presentation. Requires a created queue for this.
-    virtual ResultCode createSwapchain(const SwapchainCreateDescription& description, Swapchain** ppSwapchainOut) = 0;
+    virtual Swapchain*      createSwapchain(const Swapchain::Description& description) = 0;
 
-    virtual ResultCode freeSwapchain(Swapchain* swapchain) = 0;
-    virtual ResultCode freePipeline(Pipeline* pipeline) = 0;
+    virtual ResultCode      freeSwapchain(Swapchain* swapchain) = 0;
+    virtual ResultCode      freePipeline(Pipeline* pipeline) = 0;
+
+    virtual ResultCode      freeFrameProcess(FrameProcess* frameProcess) = 0;
+    virtual ResultCode      freeFence(Fence fence) = 0;
+    
+    virtual ResultCode      processFrame(FrameHandle frame) = 0;
+    
 };
 } // RenderApi
 } // Recluse

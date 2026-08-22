@@ -23,6 +23,21 @@ VkPhysicalDeviceProperties VulkanAdapter::gatherProperties(VkPhysicalDevice phys
     return properties;
 }
 
+Bool VulkanAdapter::checkSupportsDeviceExtension(VkPhysicalDevice physicalDevice, const char* ext)
+{
+    std::vector<VkExtensionProperties> deviceExtensions = gatherExtensionProperties(physicalDevice);
+    for (U32 i = 0; i < deviceExtensions.size(); ++i)
+    {
+        // We found the right extension
+        if (strcmp(ext, deviceExtensions[i].extensionName) == 0)
+        {
+            return true;
+        }
+    }
+    // No supported extension found, return false.
+    return false;
+}
+
 static VulkanDevice::QueueIndices obtainQueueIndicesData(VkQueueFamilyProperties* properties, uint propertyCount,
     CommandQueueType* types, uint typesCount)
 {
@@ -154,11 +169,6 @@ ResultCode VulkanAdapter::queryInformation(Information* info)
     return RecluseResult_Ok;
 }
 
-Bool VulkanAdapter::supportsFeature(FeatureFlag feature)
-{
-    return false;
-}
-
 std::vector<VkExtensionProperties> VulkanAdapter::gatherExtensionProperties(VkPhysicalDevice physicalDevice)
 {
     uint32_t propertyCount = 0;
@@ -227,6 +237,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
             (VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_MAINTENANCE1_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_SWAPCHAIN_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance);
 
         // Graph link dependencies
@@ -292,6 +303,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
         initialExt.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+        initialExt.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 
         if (description.enableMeshShaders)
         {
@@ -319,6 +331,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     }
 
     checkAvailableExtensions(m_physicalDevice, requestedExtensions);
+    
 
     uint32_t queueFamilyPropertyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, nullptr);
@@ -368,15 +381,36 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     createDeviceQueueCi(indices.compute);
     createDeviceQueueCi(indices.copy);
 
-    VkDeviceCreateInfo deviceCi = { };
-    deviceCi.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCi.enabledLayerCount = 0;
-    deviceCi.ppEnabledLayerNames = nullptr;
-    deviceCi.enabledExtensionCount = requestedExtensions.size();
-    deviceCi.ppEnabledExtensionNames = requestedExtensions.data();
-    deviceCi.queueCreateInfoCount = deviceQueueCi.size();
-    deviceCi.pQueueCreateInfos = deviceQueueCi.data();
-    deviceCi.pEnabledFeatures = nullptr; // To be using VkPhysicalDeviceFeatures2
+    Features features;
+
+    if (description.enableMeshShaders)
+    {
+        VkPhysicalDeviceMeshShaderFeaturesEXT* meshShader = features.add<VkPhysicalDeviceMeshShaderFeaturesEXT>();
+        meshShader->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+    }
+
+    vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features());
+
+    if (description.enableMeshShaders)
+    {
+        VkPhysicalDeviceMeshShaderFeaturesEXT* meshShader = features.find<VkPhysicalDeviceMeshShaderFeaturesEXT>();
+        if (meshShader)
+        {
+            meshShader->multiviewMeshShader = false;
+            meshShader->primitiveFragmentShadingRateMeshShader = false;
+        }
+    }
+
+    VkDeviceCreateInfo deviceCi         = { };
+    deviceCi.sType                      = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    deviceCi.enabledLayerCount          = 0;
+    deviceCi.ppEnabledLayerNames        = nullptr;
+    deviceCi.enabledExtensionCount      = requestedExtensions.size();
+    deviceCi.ppEnabledExtensionNames    = requestedExtensions.data();
+    deviceCi.queueCreateInfoCount       = deviceQueueCi.size();
+    deviceCi.pQueueCreateInfos          = deviceQueueCi.data();
+    deviceCi.pEnabledFeatures           = nullptr; // To be using VkPhysicalDeviceFeatures2
+    deviceCi.pNext                      = &features();
     
     VkDevice device = VK_NULL_HANDLE;
     VkResult result = vkCreateDevice(m_physicalDevice, &deviceCi, nullptr, &device);
