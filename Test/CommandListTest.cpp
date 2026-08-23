@@ -29,7 +29,13 @@ TEST(CommandListTest, SimpleCommand)
     EXPECT_EQ(header->opcode, CommandOpcode_Begin);
     EXPECT_EQ(header->size, sizeof(CommandListDescription));
 
-    cursor += sizeof(CommandHeader) + header->size;
+    cursor += sizeof(CommandHeader);
+
+    CommandListDescription* desc = reinterpret_cast<CommandListDescription*>(cursor);
+    EXPECT_EQ(desc->instance, CommandList::Dynamic);
+    EXPECT_EQ(desc->type, CommandList::Primary);
+
+    cursor += header->size;
 
     header = reinterpret_cast<CommandHeader*>(cursor);
     EXPECT_EQ(header->opcode, CommandOpcode_End);

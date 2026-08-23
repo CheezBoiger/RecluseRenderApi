@@ -167,8 +167,11 @@ TEST(VulkanTest, CreateDevice)
             window->close();
     }
 
-    //FrameProcess* frameProcessor = device->createFrameProcess();
-    //ASSERT_NE(frameProcessor, nullptr);
+    FrameProcess::Description desc = { };
+    desc.maxFramesInFlight = 1;
+    desc.numCommandListJobThreads = 2;
+    FrameProcess* frameProcessor = device->createFrameProcess(desc);
+    ASSERT_NE(frameProcessor, nullptr);
 
     //// Swapchain    
     //FrameProcess::FrameDescription frameDescription;
@@ -193,7 +196,7 @@ TEST(VulkanTest, CreateDevice)
 
     //device->processFrame(frameProcessor->endFrame());
 
-    
+    EXPECT_EQ(device->freeFrameProcess(frameProcessor), RecluseResult_Ok);
     EXPECT_EQ(device->freeSwapchain(swapchain), RecluseResult_Ok);
     EXPECT_EQ(adapter->freeDevice(device), RecluseResult_Ok);
     ASSERT_EQ(context->freeAdapter(adapter), RecluseResult_Ok);

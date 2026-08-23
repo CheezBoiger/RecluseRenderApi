@@ -43,9 +43,36 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
 void VulkanFrameProcess::release()
 {
+    R_ASSERT(m_device);
+
+    m_workerPool.stop();
+
     for (uint i = 0; i < m_bufferFrames.size(); ++i)
     {
-        
+        BufferFrame& frame = m_bufferFrames[i];
+    
+        if (frame.fence)
+            vkDestroyFence(m_device, frame.fence, nullptr);
+        frame.fence = nullptr;
+
+        for (auto& it : frame.commandPools)
+        {
+            if (!it.second.commandBuffers.empty())
+            {
+                vkFreeCommandBuffers(m_device, it.second.pool,
+                    it.second.commandBuffers.size(), it.second.commandBuffers.data());
+            }
+            if (!it.second.secondaryCommandBuffers.empty())
+            {
+                vkFreeCommandBuffers(m_device, it.second.pool,
+                    it.second.secondaryCommandBuffers.size(), it.second.secondaryCommandBuffers.data());
+            }
+
+            if (it.second.pool)
+                vkDestroyCommandPool(m_device, it.second.pool, nullptr);
+
+            it.second.pool = nullptr;
+        }
     }
 }
 
@@ -84,6 +111,17 @@ void VulkanFrameProcess::initialize()
         poolCreateFn(frame, m_queueIndices.copy.familyIndex);
     }
     
+    m_workerPool.start();
+}
+
+ResultCode VulkanFrameProcess::waitForFences(Fence* fences, uint numFences)
+{
+    return RecluseResult_NoImpl;
+}
+
+ResultCode VulkanFrameProcess::signalFences(Fence* fences, uint numFences)
+{
+    return RecluseResult_NoImpl;
 }
 } // Vulkan
 } // RenderApi

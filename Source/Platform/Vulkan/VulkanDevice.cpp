@@ -2,12 +2,18 @@
 #include "VulkanAdapter.hpp"
 #include "VulkanSwapchain.hpp"
 #include "VulkanContext.hpp"
+#include "VulkanFrameProcess.hpp"
 
 #include <Recluse/Messaging.hpp>
+
+#include <list>
+#include <map>
 
 namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
+
+std::map<VulkanDevice*, std::list<VulkanFrameProcess*>> g_frameProcessMap;
 
 VulkanDevice::VulkanDevice(VulkanAdapter* adapter, VkDevice device, 
     const QueueIndices& queueIndices)
@@ -130,12 +136,30 @@ void VulkanDevice::internalFreeFence(VkFence fence)
 
 FrameProcess* VulkanDevice::createFrameProcess(const FrameProcess::Description& description)
 {
-    return nullptr;
+    auto& it = g_frameProcessMap[this];
+    
+    it.push_back(new VulkanFrameProcess(get(), m_queueIndices, description));
+
+    return it.back();
 }
 
 ResultCode VulkanDevice::freeFrameProcess(FrameProcess* frameProcess)
 {
-    return RecluseResult_NoImpl;
+    VulkanFrameProcess* nativeProcess = dynamic_cast<VulkanFrameProcess*>(frameProcess);
+    if (nativeProcess)
+    {
+        for (auto& it = g_frameProcessMap[this].begin(); it != g_frameProcessMap[this].end(); ++it)
+        {
+            if (nativeProcess == *it)
+            {
+                g_frameProcessMap[this].erase(it);
+                nativeProcess->release();
+                delete nativeProcess;
+                return RecluseResult_Ok;
+            }   
+        }
+    }
+    return RecluseResult_NotFound;
 }
 
 ResultCode VulkanDevice::processFrame(FrameHandle frame)

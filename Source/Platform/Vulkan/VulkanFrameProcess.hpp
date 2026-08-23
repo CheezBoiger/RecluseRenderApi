@@ -33,13 +33,14 @@ public:
         SubmitType_Sync,
     };
 
-    VulkanFrameProcess(VkDevice device, const VulkanDevice::QueueIndices& queueIndices, const FrameProcess::Description& description);
+    VulkanFrameProcess(VkDevice device = VK_NULL_HANDLE, const VulkanDevice::QueueIndices& queueIndices = { }, const FrameProcess::Description& description = { });
 
     void                        beginFrame(const FrameDescription& frame) override;
     FrameHandle                 endFrame() override;
 
     ResultCode                  submitCommandLists(CommandQueueType type, CommandList* lists, uint numLists) override;
-
+    ResultCode                  waitForFences(Fence* fences, uint numFences) override;
+    ResultCode                  signalFences(Fence* fences, uint numFences) override;
     void                        release();
 private:
 
