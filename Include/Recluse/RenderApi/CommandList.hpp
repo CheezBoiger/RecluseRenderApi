@@ -40,9 +40,10 @@ public:
     typedef U32 Id;
     static const Id kBadId = ~0;
 
-    enum CommandInstance { Primary, Bundle };
+    enum CommandInstance { Dynamic, Static, OneTimeOnly };
+    enum CommandType { Primary, Bundle };
 
-    CommandList(CommandInstance instance = Primary);
+    CommandList(CommandType type = Primary, CommandInstance instance = Dynamic);
 
     void begin();
     void end();
@@ -116,8 +117,12 @@ private:
     // Render command list id.
     Id m_id;
 
-    // This Instance
-    CommandInstance instance;
+    // The Instance type of this command list.
+    CommandInstance m_instance;
+
+    // The command list type. Usually it is dynamic.
+    CommandType m_type;
+    
 };
 } // RenderApi
 } // Recluse

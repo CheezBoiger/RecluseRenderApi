@@ -22,6 +22,8 @@ set(RECLUSE_VULKAN_FILES
 	${RECLUSE_VULKAN_PATH}/VulkanContext.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanAdapter.hpp
 	${RECLUSE_VULKAN_PATH}/VulkanAdapter.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanResource.hpp
+	${RECLUSE_VULKAN_PATH}/VulkanResource.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanInstance.hpp
 	${RECLUSE_VULKAN_PATH}/VulkanInstance.cpp)
 	

@@ -81,6 +81,12 @@ struct CommandHeader
     }
 };
 
+struct CommandListDescription
+{
+    CommandList::CommandType type;
+    CommandList::CommandInstance instance;
+};
+
 struct BindPipelineCommand
 {
     PipelineId      pipeline;

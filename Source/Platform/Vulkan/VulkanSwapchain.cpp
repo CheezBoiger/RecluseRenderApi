@@ -8,7 +8,6 @@ namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
-
 VulkanSwapchain::VulkanSwapchain(VulkanDevice* device, VkSurfaceKHR surface, const Swapchain::Description& description)
     : m_swapchain(VK_NULL_HANDLE)
     , m_description(description)
@@ -17,7 +16,16 @@ VulkanSwapchain::VulkanSwapchain(VulkanDevice* device, VkSurfaceKHR surface, con
 {
     R_ASSERT(device);
     m_device = device->get();
-    initialize(device);   
+    if (!device)
+    {
+        initialize(device);   
+        initializeSwapchainResources();
+    }
+}
+
+VulkanSwapchain::~VulkanSwapchain()
+{
+    // Do nothing
 }
 
 void VulkanSwapchain::initialize(VulkanDevice* device)
@@ -157,6 +165,8 @@ void VulkanSwapchain::initialize(VulkanDevice* device)
 
 void VulkanSwapchain::release()
 {
+    destroySwapchainResources();
+
     if (m_swapchain)
     {
         vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
@@ -172,12 +182,78 @@ ResultCode VulkanSwapchain::rebuild(const Swapchain::Description& description)
 
 Resource* VulkanSwapchain::currentBackbuffer()
 {
-    return nullptr;
+    return &m_imageResources[currentFrameIndex()];
 }
 
 Swapchain::Description VulkanSwapchain::getDescription()
 {
     return m_description;
+}
+
+void VulkanSwapchain::initializeSwapchainResources()
+{
+    m_backBuffers.resize(m_description.numFrames);
+    m_imageResources.resize(m_description.numFrames);
+    VkResult result                         = VK_SUCCESS;
+    std::vector<VkImage> swapchainImages    = { };
+
+    {
+        uint swapchainImageCount = 0;
+        result = vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchainImageCount, nullptr);
+        R_ASSERT(result == VK_SUCCESS);
+        swapchainImages.resize(swapchainImageCount);
+        vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchainImageCount, swapchainImages.data());
+        R_ASSERT(result == VK_SUCCESS);
+    }
+
+    for (uint i = 0; i < m_backBuffers.size(); ++i)
+    {
+        SwapchainBuffer& buffer = m_backBuffers[i];
+        {
+            VkSemaphoreCreateInfo semaphoreCi = { };
+            semaphoreCi.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+            semaphoreCi.flags = 0;
+
+            result = vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &buffer.waitSemaphore);
+            R_ASSERT(result == VK_SUCCESS);
+            result = vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &buffer.signalSemaphore);
+            R_ASSERT(result == VK_SUCCESS);
+        }
+        
+        {
+            VkFenceCreateInfo fenceCi =  { };
+            fenceCi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+            fenceCi.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+            fenceCi.pNext = nullptr;
+
+            result = vkCreateFence(m_device, &fenceCi, nullptr, &buffer.fence);
+            R_ASSERT(result == VK_SUCCESS);
+        }
+
+        // Now assign the image
+        buffer.image = swapchainImages[i];
+    }
+
+    for (uint i = 0; i < m_imageResources.size(); ++i)
+    {
+        // Make the handlers.
+        m_imageResources[i] = VulkanResource(m_backBuffers[i].image);
+    }
+}
+
+void VulkanSwapchain::destroySwapchainResources()
+{
+    for (auto& backBuffers : m_backBuffers)
+    {
+        vkDestroySemaphore(m_device, backBuffers.waitSemaphore, nullptr);
+        vkDestroySemaphore(m_device, backBuffers.signalSemaphore, nullptr);
+        vkDestroyFence(m_device, backBuffers.fence, nullptr);
+        // We don't call vkDestroyImage, as these images are managed by the swapchain,
+        // they will be cleaned up when it is destroyed. Here we will just nullify our handle to it.
+        backBuffers.image = VK_NULL_HANDLE;
+    }
+
+    m_imageResources.clear();
 }
 } // Vulkan
 } // RenderApi 

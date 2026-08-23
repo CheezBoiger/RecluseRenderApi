@@ -27,15 +27,15 @@ TEST(CommandListTest, SimpleCommand)
 
     CommandHeader* header = reinterpret_cast<CommandHeader*>(cursor);
     EXPECT_EQ(header->opcode, CommandOpcode_Begin);
-    EXPECT_EQ(header->size, sizeof(CommandHeader));
+    EXPECT_EQ(header->size, sizeof(CommandListDescription));
 
-    cursor += header->size;
+    cursor += sizeof(CommandHeader) + header->size;
 
     header = reinterpret_cast<CommandHeader*>(cursor);
     EXPECT_EQ(header->opcode, CommandOpcode_End);
-    EXPECT_EQ(header->size, sizeof(CommandHeader));
+    EXPECT_EQ(header->size, 0);
 
-    EXPECT_EQ(chunk.sizeBytes, 8);
+    EXPECT_EQ(chunk.sizeBytes, 16);
     list.reset();
 
     chunk = list.getChunk();

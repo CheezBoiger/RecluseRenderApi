@@ -19,28 +19,33 @@ static CommandList::Id getId()
     return kIdCounter++;
 }
 
-CommandList::CommandList(CommandInstance instance)
+CommandList::CommandList(CommandType type, CommandInstance instance)
     : m_id(kBadId)
-    , instance(instance)
+    , m_instance(instance)
+    , m_type(type)
 {
     m_id = getId();
 }
 
 void CommandList::begin()
 {
-    CommandHeader* command = m_commandAllocator.allocate<CommandHeader>();
+    CommandHeader* command = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<CommandListDescription>());
     command->opcode = CommandOpcode_Begin;
-    command->size = sizeof(CommandHeader);
+    command->size = sizeof(CommandListDescription);
+
+    CommandListDescription* description = CommandHeader::dataOffset<CommandListDescription>(command);
+    description->instance = m_instance;
+    description->type = m_type;
 
     m_chunk.baseAddress = (UPtr)command;
-    m_chunk.sizeBytes += sizeof(CommandHeader);
+    m_chunk.sizeBytes += CommandHeader::dataSize<CommandListDescription>();
 }
 
 void CommandList::end()
 {
     CommandHeader* command = m_commandAllocator.allocate<CommandHeader>();
     command->opcode = CommandOpcode_End;
-    command->size = sizeof(CommandHeader);
+    command->size = 0;
 
     m_chunk.sizeBytes += sizeof(CommandHeader);
 }

@@ -33,19 +33,19 @@ public:
     Resource(ResourceId id) : m_id(id) { }
     virtual ~Resource() { }
 
-    virtual ResultCode map(void** ptr, const MapRange& range) = 0;
-    virtual ResultCode unmap(const void* ptr, const MapRange& range) = 0;
+    virtual void*                   map(const MapRange& range) = 0;
+    virtual ResultCode              unmap(const void* ptr, const MapRange& range) = 0;
     
-    virtual ResourceViewId asView(const ResourceViewDescription& desc) = 0;
-    virtual ResourceViewId defaultView() = 0;
+    virtual ResourceViewId          asView(const ResourceViewDescription& desc) = 0;
+    virtual ResourceViewId          defaultView() = 0;
 
-    ResourceId getId() const { return m_id; }
+    ResourceId                      getId() const { return m_id; }
 
-    virtual ResourceState getCurrentState() = 0;
+    virtual ResourceState           getCurrentState() const = 0;
 
-    virtual Resource::Description getDescription() = 0;
+    virtual Resource::Description   getDescription() const = 0;
 
-    ResourceViewId operator()(const ResourceViewDescription& desc)
+    ResourceViewId                  operator()(const ResourceViewDescription& desc)
     {
         return asView(desc);
     }
@@ -56,7 +56,7 @@ public:
     }
 
 private:
-    ResourceId m_id;
+    ResourceId                      m_id;
 };
 } // RenderApi
 } // Recluse
