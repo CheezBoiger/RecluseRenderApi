@@ -56,6 +56,8 @@ struct CommandHeader
     CommandOpcode opcode;
 
     // Size defines the actual size of the data packet, excluding this header.
+    // Be sure to offset with both sizeof(CommandHeader) + header->size, as you should 
+    // include the entire packet, or use packetSizeBytes().
     U16           size;
 
     // Gets the data size of the command, this is the header + command data.
@@ -78,6 +80,17 @@ struct CommandHeader
     static Type* dataOffset(void* header)
     {
         return reinterpret_cast<Type*>(reinterpret_cast<UPtr>(header) + sizeof(CommandHeader));
+    }
+
+    static void* offsetOf(void* header)
+    {
+        return reinterpret_cast<void*>(reinterpret_cast<UPtr>(header) + sizeof(CommandHeader));
+    }
+
+    // Returns the total packet size, including the header, in bytes.
+    static uint packetSizeBytes(CommandHeader* header)
+    {
+        return (uint)(sizeof(CommandHeader) + reinterpret_cast<CommandHeader*>(header)->size);
     }
 };
 

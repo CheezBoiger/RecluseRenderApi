@@ -2,6 +2,8 @@
 #include "VulkanFrameProcess.hpp"
 #include "VulkanSwapchain.hpp"
 
+#include <Shared/CommandOps.hpp>
+
 #include <functional>
 
 namespace Recluse {
@@ -338,7 +340,36 @@ void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()
 
 ResultCode VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, VkCommandBuffer commandbuffer)
 {
-    return RecluseResult_NoImpl;
+    UPtr address = chunk.baseAddress;
+    const UPtr endAddress = chunk.baseAddress + chunk.sizeBytes;
+    
+    while (address < endAddress)
+    {
+        CommandHeader* header = reinterpret_cast<CommandHeader*>(address);
+        switch (header->opcode)
+        {
+            case CommandOpcode_Begin:
+            {
+                CommandListDescription* description = (CommandListDescription*)(address + sizeof(CommandHeader));
+                VkCommandBufferBeginInfo beginInfo = { };
+                beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+                beginInfo.flags = description->instance == CommandList::OneTimeOnly ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
+                vkBeginCommandBuffer(commandbuffer, &beginInfo);
+                break;
+            }
+            case CommandOpcode_End:
+            {
+                vkEndCommandBuffer(commandbuffer);
+                break;
+            }
+            default:
+                break;
+        }
+        
+        address += CommandHeader::packetSizeBytes(header);
+    }
+
+    return RecluseResult_Ok;
 }
 } // Vulkan
 } // RenderApi
