@@ -44,6 +44,17 @@ public:
     ResultCode                  signalFences(Fence* fences, uint numFences) override;
     ResultCode                  waitIdle() override;
     void                        release();
+
+    class VulkanCommandListEncoder
+    {
+    public:
+        VulkanCommandListEncoder(VulkanFrameProcess* process) : m_process(process) { }
+        ResultCode encode(const CommandStreamChunk& chunk, VkCommandBuffer cmdBuffer);
+
+        ResultCode operator()(const CommandStreamChunk& chunk, VkCommandBuffer buffer) { return encode(chunk, buffer); }
+    private:
+        VulkanFrameProcess* m_process;
+    };
 private:
 
     uint                        incrementFrameIndex() 
@@ -58,13 +69,32 @@ private:
 
     struct CommandPool
     {
+        struct CommandBufferHandler
+        {
+            std::vector<VkCommandBuffer> commandbuffers;
+            uint currentCbIndex;
+
+            void                       reset();
+            VkResult                   obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
+                                                VkCommandBufferLevel level, VkCommandBuffer* out, 
+                                                uint numRequested, uint numOverflowCount);
+        };
+
         VkCommandPool pool;
-        std::vector<VkCommandBuffer>    commandBuffers;
-        std::vector<VkCommandBuffer>    secondaryCommandBuffers;
+        CommandBufferHandler            primary;
+        CommandBufferHandler            secondary;
+
+        VkCommandBuffer                 obtainCommandBuffer(VkDevice device, 
+                                            CommandList::CommandType type, CommandList::CommandInstance instance);
+        VkResult                        obtainCommandBuffers(VkDevice device, 
+                                            CommandList::CommandType type, CommandList::CommandInstance instance, uint numBuffers,
+                                            VkCommandBuffer* out);
+    private:
     };
 
     struct Frame
     {
+        LinearScratchMemory<1024>       scratch;
         LinearScratchMemory<1024>       frameMemory;
         FrameStream                     frameStream;
         std::map<uint, CommandPool>     commandPools;

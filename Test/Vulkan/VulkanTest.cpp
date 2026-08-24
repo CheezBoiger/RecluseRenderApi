@@ -157,44 +157,46 @@ TEST(VulkanTest, CreateDevice)
     Swapchain* swapchain = device->createSwapchain(swapchainDesc);
     EXPECT_NE(swapchain, nullptr);
 
-    int i = 0;
-    while (!window->shouldClose())
-    {
-        pollEvents();
-        i++;
-
-        if (i == 10000)
-            window->close();
-    }
-
     FrameProcess::Description desc = { };
     desc.maxFramesInFlight = 1;
     desc.numCommandListJobThreads = 2;
     FrameProcess* frameProcessor = device->createFrameProcess(desc);
     ASSERT_NE(frameProcessor, nullptr);
 
-    //// Swapchain    
-    //FrameProcess::FrameDescription frameDescription;
-    //frameDescription.swapchain = swapchain;
+    int i = 0;
+    while (!window->shouldClose())
+    {
+        pollEvents();
+        i++;
 
-    //frameProcessor->beginFrame(frameDescription);
-    //CommandList commandlist;
-    //commandlist.begin();
+        //// Swapchain    
+        //FrameProcess::FrameDescription frameDescription;
+        //frameDescription.swapchain = swapchain;
 
-    //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
-    //
-    //ResourceViewDescription viewDesc = { };
-    //ResourceViewId id = swapchain->currentBackbuffer()->asView(viewDesc);
-    //commandlist.bindRenderTargets(&id, 1, 0);
-    //f32 co[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    //commandlist.clearRenderTarget(0, co, { });
-    //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
+        //frameProcessor->beginFrame(frameDescription);
+        //CommandList commandlist;
+        //commandlist.begin();
 
-    //commandlist.end();
+        //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
+        ////
+        //ResourceViewDescription viewDesc = { };
+        //ResourceViewId id = swapchain->currentBackbuffer()->asView(viewDesc);
+        //commandlist.bindRenderTargets(&id, 1, 0);
+        //f32 co[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        //commandlist.clearRenderTarget(0, co, { });
+        //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
 
-    //frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);
+        //commandlist.end();
 
-    //device->processFrame(frameProcessor->endFrame());
+        //frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);
+
+        //device->processFrame(frameProcessor->endFrame());
+
+        if (i == 10000)
+            window->close();
+    }
+
+    frameProcessor->waitIdle();
 
     EXPECT_EQ(device->freeFrameProcess(frameProcessor), RecluseResult_Ok);
     EXPECT_EQ(device->freeSwapchain(swapchain), RecluseResult_Ok);

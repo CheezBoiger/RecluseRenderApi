@@ -164,7 +164,62 @@ ResultCode VulkanDevice::freeFrameProcess(FrameProcess* frameProcess)
 
 ResultCode VulkanDevice::processFrame(FrameHandle frame)
 {
-    return RecluseResult_NoImpl;
+    if (frame == 0) return RecluseResult_NullPtrExcept;
+    
+    VulkanFrameProcess::FrameStream* stream = reinterpret_cast<VulkanFrameProcess::FrameStream*>(frame);
+    UPtr address = stream->baseAddress;
+    const UPtr endAddress = address + stream->sizeBytes;
+
+    while (address < endAddress)
+    {
+        uint sizeBytes = 0;
+        VulkanFrameProcess::SubmitType submitType = *reinterpret_cast<VulkanFrameProcess::SubmitType*>(address);
+        address += sizeof(VulkanFrameProcess::SubmitType);
+
+        switch (submitType)
+        {
+            case VulkanFrameProcess::SubmitType_CommandBuffers:
+            {
+                VkSubmitInfo* info = (VkSubmitInfo*)address;
+                address += sizeof(VkSubmitInfo);
+                CommandQueueType commandQueueType = *((CommandQueueType*)address);
+                address += sizeof(CommandQueueType);
+                VkFence fence = *(VkFence*)address;
+                address += sizeof(VkFence);
+
+                VkQueue queue = queryQueue(commandQueueType);
+                vkQueueSubmit(queue, 1, info, fence);
+                break;
+            }
+            case VulkanFrameProcess::SubmitType_Present:
+            {
+                VkPresentInfoKHR* info = (VkPresentInfoKHR*)address;
+                VkQueue queue = queryQueue(CommandQueueType_Graphics);
+
+                vkQueuePresentKHR(queue, info);
+                address += sizeof(VkPresentInfoKHR);
+                break;
+            }
+            case VulkanFrameProcess::SubmitType_Sync:
+            default:
+                address += 8;
+        }
+    }
+    return RecluseResult_Ok;
+}
+
+VkQueue VulkanDevice::queryQueue(CommandQueueType queueType)
+{
+    switch (queueType)
+    {
+        case CommandQueueType_Compute: 
+            return m_computeQueue;
+        case CommandQueueType_Copy:
+            return m_copyQueue;
+        case CommandQueueType_Graphics:
+        default: return m_graphicsQueue;
+    }
+    return VK_NULL_HANDLE;
 }
 } // Vulkan
 } // RenderApi 

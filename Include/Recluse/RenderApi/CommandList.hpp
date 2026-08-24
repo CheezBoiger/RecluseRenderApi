@@ -100,6 +100,9 @@ public:
     // all commands that have been recorded.
     CommandStreamChunk getChunk() const;
 
+    CommandInstance getInstance() const { return m_instance; }
+    CommandType getType() const { return m_type; }
+
 private:
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
