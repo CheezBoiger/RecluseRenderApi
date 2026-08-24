@@ -122,7 +122,7 @@ TEST(VulkanTest, CreateDevice)
         uint index = -1;
         for (uint i = 0; i < count; ++i)
         {
-            if (info[i].type == Adapter::Type_Discrete || info[i].type == Adapter::Type_Integrated)
+            if (/*info[i].type == Adapter::Type_Discrete || */info[i].type == Adapter::Type_Integrated)
             {
                 index = info[i].index;
                 break;
@@ -149,7 +149,7 @@ TEST(VulkanTest, CreateDevice)
     swapchainDesc.renderWidth = window->getWidth();
     swapchainDesc.renderHeight = window->getHeight();
     swapchainDesc.format = ResourceFormat_R8G8B8A8_Unorm;
-    swapchainDesc.numFrames = 2;
+    swapchainDesc.numFrames = 5;
     swapchainDesc.usage = 0;
     swapchainDesc.presentMode = Swapchain::PresentMode_VSync;
     swapchainDesc.windowHandle = window->getNativeHandle();

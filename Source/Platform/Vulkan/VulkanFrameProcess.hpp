@@ -20,6 +20,8 @@ class VulkanSwapchain;
 
 class VulkanFrameProcess : public FrameProcess
 {
+    class CommandPool;
+
 public:
     static const uint kNumMaxSignalSemaphores = 1;
     static const uint kNumMaxWaitSemaphores = 1;
@@ -52,24 +54,24 @@ public:
     class VulkanCommandListEncoder
     {
     public:
-        VulkanCommandListEncoder(VulkanFrameProcess* process) : m_process(process) { }
-        ResultCode encode(const CommandStreamChunk& chunk, VkCommandBuffer cmdBuffer);
-
-        ResultCode operator()(const CommandStreamChunk& chunk, VkCommandBuffer buffer) { return encode(chunk, buffer); }
+        VulkanCommandListEncoder(VkDevice device, CommandPool& commandPool) : m_device(device), m_pool(commandPool) { }
+        VkCommandBuffer encode(const CommandStreamChunk& chunk);
+        VkCommandBuffer operator()(const CommandStreamChunk& chunk) { return encode(chunk); }
     private:
-        VulkanFrameProcess* m_process;
+        VkDevice m_device;
+        CommandPool& m_pool;
     };
 private:
 
-    uint                        incrementFrameIndex() 
+    uint incrementFrameIndex() 
         { 
             m_currentFrameIndex = (m_currentFrameIndex + 1) % m_maxFramesInFlight; 
             return m_currentFrameIndex; 
         }
 
-    uint                        currentFrameIndex() const { return m_currentFrameIndex; }
+    uint currentFrameIndex() const { return m_currentFrameIndex; }
 
-    void                        initialize();
+    void initialize();
 
     struct CommandPool
     {

@@ -134,10 +134,9 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 {
     if (numLists == 0) return RecluseResult_Ok;
 
-    VulkanCommandListEncoder encoder(this);
-
     Frame& frame = m_frames[currentFrameIndex()];
     CommandPool& pool = frame.commandPools[type];
+    VulkanCommandListEncoder encoder(m_device, pool);
     ResultCode result = RecluseResult_Ok;
     
     const uint submitBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
@@ -175,9 +174,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
     for (uint i = 0; i < numLists ; ++i)
     {
-        R_ASSERT(lists[i].getType() == CommandList::CommandType::Primary);
-        VkCommandBuffer cmdBuffer = pool.obtainCommandBuffer(m_device, lists[i].getType(), lists[i].getInstance());
-        result = encoder(lists[i].getChunk(), cmdBuffer);
+        VkCommandBuffer cmdBuffer = encoder(lists[i].getChunk());
         VkCommandBuffer* cmd = (VkCommandBuffer*)packet;
         *cmd = cmdBuffer;
 
@@ -377,11 +374,12 @@ void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()
     currentCbIndex = 0;
 }
 
-ResultCode VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, VkCommandBuffer commandbuffer)
+VkCommandBuffer VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk)
 {
     UPtr address = chunk.baseAddress;
     const UPtr endAddress = chunk.baseAddress + chunk.sizeBytes;
-    
+    VkCommandBuffer commandbuffer = VK_NULL_HANDLE;
+
     while (address < endAddress)
     {
         CommandHeader* header = reinterpret_cast<CommandHeader*>(address);
@@ -390,6 +388,8 @@ ResultCode VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStr
             case CommandOpcode_Begin:
             {
                 CommandListDescription* description = (CommandListDescription*)(address + sizeof(CommandHeader));
+                commandbuffer = m_pool.obtainCommandBuffer(m_device, description->type, description->instance);
+
                 VkCommandBufferBeginInfo beginInfo = { };
                 beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
                 beginInfo.flags = description->instance == CommandList::OneTimeOnly ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
@@ -413,7 +413,7 @@ ResultCode VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStr
         address += CommandHeader::packetSizeBytes(header);
     }
 
-    return RecluseResult_Ok;
+    return commandbuffer;
 }
 } // Vulkan
 } // RenderApi

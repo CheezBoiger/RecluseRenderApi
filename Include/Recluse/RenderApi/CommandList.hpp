@@ -43,9 +43,15 @@ public:
     enum CommandInstance { Dynamic, Static, OneTimeOnly };
     enum CommandType { Primary, Bundle };
 
-    CommandList(CommandType type = Primary, CommandInstance instance = Dynamic);
+    struct BeginDescription
+    {
+        CommandType type;
+        CommandInstance instance;
+    };
 
-    void begin();
+    CommandList();
+
+    void begin(const BeginDescription& beginDescription = { Primary, Dynamic });
     void end();
 
     void clearRenderTarget(uint renderTargetIndex, const F32 clearColor[4], const Rect& rect);
@@ -100,9 +106,6 @@ public:
     // all commands that have been recorded.
     CommandStreamChunk getChunk() const;
 
-    CommandInstance getInstance() const { return m_instance; }
-    CommandType getType() const { return m_type; }
-
 private:
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
@@ -119,13 +122,6 @@ private:
 
     // Render command list id.
     Id m_id;
-
-    // The Instance type of this command list.
-    CommandInstance m_instance;
-
-    // The command list type. Usually it is dynamic.
-    CommandType m_type;
-    
 };
 } // RenderApi
 } // Recluse
