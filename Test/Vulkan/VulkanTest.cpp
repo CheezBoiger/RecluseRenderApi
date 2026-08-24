@@ -122,7 +122,7 @@ TEST(VulkanTest, CreateDevice)
         uint index = -1;
         for (uint i = 0; i < count; ++i)
         {
-            if (/*info[i].type == Adapter::Type_Discrete || */info[i].type == Adapter::Type_Integrated)
+            if (info[i].type == Adapter::Type_Discrete || info[i].type == Adapter::Type_Integrated)
             {
                 index = info[i].index;
                 break;
@@ -175,7 +175,8 @@ TEST(VulkanTest, CreateDevice)
 
         frameProcessor->beginFrame(frameDescription);
         CommandList commandlist;
-        commandlist.begin();
+
+        commandlist.begin({ CommandList::Primary, CommandList::Dynamic });
 
         commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
 
