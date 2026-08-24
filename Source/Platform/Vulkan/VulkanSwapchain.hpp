@@ -14,14 +14,6 @@ namespace Vulkan {
 
 class VulkanDevice;
 
-struct SwapchainBuffer
-{
-    VkSemaphore         waitSemaphore;
-    VkSemaphore         signalSemaphore;
-    VkFence             fence;
-    VkImage             image;
-};
-
 class VulkanSwapchain : public Swapchain
 {
 public:
@@ -41,21 +33,23 @@ public:
     VkSurfaceKHR                getSurface() const { return m_surface; }
 
     Bool                        isValid() const override { return (m_swapchain != VK_NULL_HANDLE); }
-    
-    SwapchainBuffer             currentSwapchainBuffer() const { return m_backBuffers[m_frameIndex]; }
-    uint                        currentFrameIndex() const { return m_currentFrameIndex; }
+    uint                        currentImageIndex() const { return m_currentImageIndex; }
+    uint                        aquireNextFrameIndex(VkSemaphore waitSemaphore);
+    VkSemaphore                 currentSignalSemaphore() const { return m_signalSemaphores[currentImageIndex()]; }
+
+    VkSwapchainKHR             get() const { return m_swapchain; }
+
 private:
     void                        initializeSwapchainResources();
     void                        destroySwapchainResources();
 
-    VkSurfaceKHR                    m_surface;
-    VkSwapchainKHR                  m_swapchain;
-    Swapchain::Description          m_description;
-    VkDevice                        m_device;
-    std::vector<SwapchainBuffer>    m_backBuffers;
-    std::vector<VulkanResource>     m_imageResources;
-    uint                            m_frameIndex;
-    uint                            m_currentFrameIndex;
+    VkSurfaceKHR                 m_surface;
+    VkSwapchainKHR               m_swapchain;
+    Swapchain::Description       m_description;
+    VkDevice                     m_device;
+    std::vector<VkSemaphore>     m_signalSemaphores;
+    std::vector<VulkanResource>  m_imageResources;
+    uint                         m_currentImageIndex;
 };
 } // Vulkan
 } // RenderApi

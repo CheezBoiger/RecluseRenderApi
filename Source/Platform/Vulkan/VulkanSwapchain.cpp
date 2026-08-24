@@ -13,14 +13,12 @@ VulkanSwapchain::VulkanSwapchain(VulkanDevice* device, VkSurfaceKHR surface, con
     , m_description(description)
     , m_device(VK_NULL_HANDLE)
     , m_surface(surface)
+    , m_currentImageIndex(0)
 {
     R_ASSERT(device);
     m_device = device->get();
-    if (!device)
-    {
-        initialize(device);   
-        initializeSwapchainResources();
-    }
+    initialize(device);   
+    initializeSwapchainResources();
 }
 
 VulkanSwapchain::~VulkanSwapchain()
@@ -182,7 +180,7 @@ ResultCode VulkanSwapchain::rebuild(const Swapchain::Description& description)
 
 Resource* VulkanSwapchain::currentBackbuffer()
 {
-    return &m_imageResources[currentFrameIndex()];
+    return &m_imageResources[currentImageIndex()];
 }
 
 Swapchain::Description VulkanSwapchain::getDescription()
@@ -190,67 +188,72 @@ Swapchain::Description VulkanSwapchain::getDescription()
     return m_description;
 }
 
+uint VulkanSwapchain::aquireNextFrameIndex(VkSemaphore waitSemaphore)
+{
+    VkResult result = vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, waitSemaphore, nullptr, &m_currentImageIndex);
+
+    switch (result)
+    {
+        case VK_ERROR_OUT_OF_DATE_KHR:
+            rebuild(m_description);
+            break;
+        case VK_SUBOPTIMAL_KHR: 
+        default:
+            break;
+    }    
+
+    return m_currentImageIndex;
+}
+
 void VulkanSwapchain::initializeSwapchainResources()
 {
-    m_backBuffers.resize(m_description.numFrames);
-    m_imageResources.resize(m_description.numFrames);
+    if (!m_device) return;
+
+    m_signalSemaphores.resize(m_description.numFrames);
+
     VkResult result                         = VK_SUCCESS;
-    std::vector<VkImage> swapchainImages    = { };
 
+    for (uint i = 0; i < m_signalSemaphores.size(); ++i)
     {
-        uint swapchainImageCount = 0;
-        result = vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchainImageCount, nullptr);
-        R_ASSERT(result == VK_SUCCESS);
-        swapchainImages.resize(swapchainImageCount);
-        vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchainImageCount, swapchainImages.data());
-        R_ASSERT(result == VK_SUCCESS);
-    }
-
-    for (uint i = 0; i < m_backBuffers.size(); ++i)
-    {
-        SwapchainBuffer& buffer = m_backBuffers[i];
         {
             VkSemaphoreCreateInfo semaphoreCi = { };
             semaphoreCi.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
             semaphoreCi.flags = 0;
 
-            result = vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &buffer.waitSemaphore);
-            R_ASSERT(result == VK_SUCCESS);
-            result = vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &buffer.signalSemaphore);
+            result = vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &m_signalSemaphores[i]);
             R_ASSERT(result == VK_SUCCESS);
         }
-        
-        {
-            VkFenceCreateInfo fenceCi =  { };
-            fenceCi.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-            fenceCi.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-            fenceCi.pNext = nullptr;
+    }
 
-            result = vkCreateFence(m_device, &fenceCi, nullptr, &buffer.fence);
-            R_ASSERT(result == VK_SUCCESS);
-        }
+    std::vector<VkImage> images;
 
-        // Now assign the image
-        buffer.image = swapchainImages[i];
+    {
+        uint swapchainImageCount = 0;
+        result = vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchainImageCount, nullptr);
+        R_ASSERT(result == VK_SUCCESS);
+ 
+       images.resize(swapchainImageCount);
+        m_imageResources.resize(m_description.numFrames);
+
+        vkGetSwapchainImagesKHR(m_device, m_swapchain, &swapchainImageCount, images.data());
+        R_ASSERT(result == VK_SUCCESS);
     }
 
     for (uint i = 0; i < m_imageResources.size(); ++i)
     {
         // Make the handlers.
-        m_imageResources[i] = VulkanResource(m_backBuffers[i].image);
+        m_imageResources[i] = VulkanResource(images[i]);
     }
 }
 
 void VulkanSwapchain::destroySwapchainResources()
 {
-    for (auto& backBuffers : m_backBuffers)
+    for (uint i = 0; i < m_description.numFrames; ++i)
     {
-        vkDestroySemaphore(m_device, backBuffers.waitSemaphore, nullptr);
-        vkDestroySemaphore(m_device, backBuffers.signalSemaphore, nullptr);
-        vkDestroyFence(m_device, backBuffers.fence, nullptr);
-        // We don't call vkDestroyImage, as these images are managed by the swapchain,
+        vkDestroySemaphore(m_device, m_signalSemaphores[i], nullptr);
+
+        // We don't call vkDestroyImage on image resources, as these images are managed by the swapchain,
         // they will be cleaned up when it is destroyed. Here we will just nullify our handle to it.
-        backBuffers.image = VK_NULL_HANDLE;
     }
 
     m_imageResources.clear();

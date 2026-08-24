@@ -16,6 +16,7 @@ namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
+class VulkanSwapchain;
 
 class VulkanFrameProcess : public FrameProcess
 {
@@ -41,6 +42,7 @@ public:
     ResultCode                  submitCommandLists(CommandQueueType type, CommandList* lists, uint numLists) override;
     ResultCode                  waitForFences(Fence* fences, uint numFences) override;
     ResultCode                  signalFences(Fence* fences, uint numFences) override;
+    ResultCode                  waitIdle() override;
     void                        release();
 private:
 
@@ -61,20 +63,22 @@ private:
         std::vector<VkCommandBuffer>    secondaryCommandBuffers;
     };
 
-    struct BufferFrame
+    struct Frame
     {
         LinearScratchMemory<1024>       frameMemory;
         FrameStream                     frameStream;
         std::map<uint, CommandPool>     commandPools;
         VkFence                         fence;
+        VkSemaphore                     semaphore;
     };
 
-    std::vector<BufferFrame>        m_bufferFrames;
+    std::vector<Frame>              m_frames;
     uint                            m_currentFrameIndex;
     uint                            m_maxFramesInFlight;
     ThreadPool                      m_workerPool;
     VkDevice                        m_device;
     VulkanDevice::QueueIndices      m_queueIndices;
+    VulkanSwapchain*                m_swapchainRef;
 };
 } // Vulkan
 } // RenderApi

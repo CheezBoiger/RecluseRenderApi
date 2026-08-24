@@ -54,6 +54,8 @@ public:
 
     // 
     virtual ResultCode                  signalFences(Fence* fences, uint numFences) = 0;
+    
+    virtual ResultCode                  waitIdle() = 0;
 };
 
 // Device is the logical instance that is created by the physical device itself (the adapter.)
