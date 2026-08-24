@@ -29,6 +29,7 @@ void VulkanFrameProcess::beginFrame(const FrameDescription& frameDescription)
     frame.frameStream.baseAddress = frame.frameMemory.getBaseAddress();
     frame.frameStream.sizeBytes = 0;
     frame.frameMemory.clear();
+    frame.scratch.clear();
 
     for (auto& it : frame.commandPools)
     {
