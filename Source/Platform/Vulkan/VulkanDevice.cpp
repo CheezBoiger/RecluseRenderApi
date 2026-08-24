@@ -184,8 +184,9 @@ ResultCode VulkanDevice::processFrame(FrameHandle frame)
                 address += sizeof(VkSubmitInfo);
                 CommandQueueType commandQueueType = *((CommandQueueType*)address);
                 address += sizeof(CommandQueueType);
+                address += sizeof(UPtr); // Skip data.
                 VkFence fence = *(VkFence*)address;
-                address += sizeof(VkFence);
+                address += sizeof(VkFence) * VulkanFrameProcess::kNumMaxSignalFences;
 
                 VkQueue queue = queryQueue(commandQueueType);
                 vkQueueSubmit(queue, 1, info, fence);

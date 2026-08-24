@@ -158,7 +158,7 @@ TEST(VulkanTest, CreateDevice)
     EXPECT_NE(swapchain, nullptr);
 
     FrameProcess::Description desc = { };
-    desc.maxFramesInFlight = 1;
+    desc.maxFramesInFlight = 2;
     desc.numCommandListJobThreads = 2;
     FrameProcess* frameProcessor = device->createFrameProcess(desc);
     ASSERT_NE(frameProcessor, nullptr);
@@ -170,27 +170,27 @@ TEST(VulkanTest, CreateDevice)
         i++;
 
         //// Swapchain    
-        //FrameProcess::FrameDescription frameDescription;
-        //frameDescription.swapchain = swapchain;
+        FrameProcess::FrameDescription frameDescription;
+        frameDescription.swapchain = swapchain;
 
-        //frameProcessor->beginFrame(frameDescription);
-        //CommandList commandlist;
-        //commandlist.begin();
+        frameProcessor->beginFrame(frameDescription);
+        CommandList commandlist;
+        commandlist.begin();
 
-        //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
-        ////
-        //ResourceViewDescription viewDesc = { };
-        //ResourceViewId id = swapchain->currentBackbuffer()->asView(viewDesc);
-        //commandlist.bindRenderTargets(&id, 1, 0);
-        //f32 co[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-        //commandlist.clearRenderTarget(0, co, { });
-        //commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
+        commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
 
-        //commandlist.end();
+        ResourceViewDescription viewDesc = { };
+        ResourceViewId id = swapchain->currentBackbuffer()->asView(viewDesc);
+        commandlist.bindRenderTargets(&id, 1, 0);
+        f32 co[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+        commandlist.clearRenderTarget(0, co, { });
+        commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
 
-        //frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);
+        commandlist.end();
 
-        //device->processFrame(frameProcessor->endFrame());
+        frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);
+
+        device->processFrame(frameProcessor->endFrame());
 
         if (i == 10000)
             window->close();

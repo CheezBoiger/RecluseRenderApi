@@ -21,6 +21,10 @@ class VulkanSwapchain;
 class VulkanFrameProcess : public FrameProcess
 {
 public:
+    static const uint kNumMaxSignalSemaphores = 1;
+    static const uint kNumMaxWaitSemaphores = 1;
+    static const uint kNumMaxSignalFences = 1;
+    
     struct FrameStream
     {
         UPtr baseAddress;

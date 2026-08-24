@@ -55,8 +55,48 @@ FrameHandle VulkanFrameProcess::endFrame()
     uint frameIndex = currentFrameIndex();
     Frame& frame = m_frames[frameIndex];
 
+    UPtr addr = frame.frameStream.baseAddress;
+    const UPtr endAddr = addr + frame.frameStream.sizeBytes;
+    if (addr < endAddr)
+    {
+        // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
+        VkFence* fence = reinterpret_cast<VkFence*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr));
+        *fence = frame.fence;
+
+        if (m_swapchainRef)
+        {
+            VkSubmitInfo* info = reinterpret_cast<VkSubmitInfo*>(addr + sizeof(SubmitType));
+            UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType));
+            VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
+                sizeof(VkPipelineStageFlags) * info->commandBufferCount);
+            waitSemaphorePtr[0] = frame.semaphore;
+            info->waitSemaphoreCount = 1;
+        }
+    }
+
     if (m_swapchainRef)
     {
+        if (frame.frameStream.sizeBytes != 0)
+        {
+            while (addr < endAddr)
+            {
+                const uint sizeBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
+                if ((addr + sizeBytes) >= endAddr)
+                    break;
+                addr += sizeBytes;
+            }
+
+            // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
+            VkSubmitInfo* info = reinterpret_cast<VkSubmitInfo*>(addr + sizeof(SubmitType));
+            UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType));
+            VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
+                sizeof(VkPipelineStageFlags) * info->commandBufferCount);
+            VkSemaphore* signalSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
+                sizeof(VkPipelineStageFlags) * info->commandBufferCount + sizeof(VkSemaphore) * kNumMaxWaitSemaphores);
+            signalSemaphorePtr[0] = m_swapchainRef->currentSignalSemaphore();
+            info->signalSemaphoreCount = 1;
+        }
+
         const uint submitSizeBytes = sizeof(SubmitType) + sizeof(VkPresentInfoKHR);
         const uint scratchSizeBytes = sizeof(VkSwapchainKHR) 
             + sizeof(uint) + sizeof(VkSemaphore);
@@ -99,15 +139,11 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     Frame& frame = m_frames[currentFrameIndex()];
     CommandPool& pool = frame.commandPools[type];
     ResultCode result = RecluseResult_Ok;
-
-    const uint numMaxSignalSemaphores = 1;
-    const uint numMaxWaitSemaphores = 1;
-    const uint numMaxSignalFences = 1;
     
-    const uint submitBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(VkFence) * numMaxSignalFences;
+    const uint submitBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
     const uint scratchSizeBytes = sizeof(VkCommandBuffer) * numLists + 
         sizeof(VkPipelineStageFlags) * numLists +
-        sizeof(VkSemaphore) * numMaxWaitSemaphores + sizeof(VkSemaphore) * numMaxSignalSemaphores;
+        sizeof(VkSemaphore) * kNumMaxWaitSemaphores + sizeof(VkSemaphore) * kNumMaxSignalSemaphores;
     
     UPtr packet = (UPtr)frame.frameMemory.allocateRaw(submitBytes);
     SubmitType* submitType = reinterpret_cast<SubmitType*>(packet);
@@ -125,15 +161,16 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     *queueType = type;
 
     packet += sizeof(CommandQueueType);
+    UPtr* dataAddress = (UPtr*)packet;
+    packet += sizeof(UPtr);
     
     VkFence* fence = (VkFence*)packet;
-    *fence = frame.fence;
-
     packet += sizeof(VkFence);
 
     // scratch data allocation.
 
     packet = (UPtr)frame.scratch.allocateRaw(scratchSizeBytes);
+    *dataAddress = packet;
     const UPtr commandBufferStartAddress = packet;
 
     for (uint i = 0; i < numLists ; ++i)
@@ -157,7 +194,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     }
 
     UPtr waitSemaphoreStartAddress = packet;
-    UPtr signalSemaphoreStartAddress = packet + sizeof(VkSemaphore) * numMaxWaitSemaphores; 
+    UPtr signalSemaphoreStartAddress = packet + sizeof(VkSemaphore) * kNumMaxWaitSemaphores; 
 
     // Now fill in the VkSubmitInfo
 
@@ -170,6 +207,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     info->pWaitDstStageMask = (VkPipelineStageFlags*)waitStageFlagsStartAddress;
 
     frame.frameStream.sizeBytes += submitBytes;
+
     return result;
 }
 
@@ -263,6 +301,7 @@ ResultCode VulkanFrameProcess::waitIdle()
 {
     VkResult result = vkDeviceWaitIdle(m_device);
     R_ASSERT(result == VK_SUCCESS);
+    m_workerPool.waitIdle();
     return result == VK_SUCCESS ? RecluseResult_Ok : RecluseResult_Failed;
 }
 
@@ -360,6 +399,11 @@ ResultCode VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStr
             case CommandOpcode_End:
             {
                 vkEndCommandBuffer(commandbuffer);
+                break;
+            }
+            case CommandOpcode_BarrierTransition:
+            {
+                BarrierTransitionHeader* transitionHeader = (BarrierTransitionHeader*)(address + sizeof(CommandHeader));
                 break;
             }
             default:
