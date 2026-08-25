@@ -16,11 +16,16 @@ class Device;
 class Pipeline;
 class Resource;
 
+enum CommandInstance : u16 { Dynamic, Static, OneTimeOnly };
+enum CommandType : U16 { Primary, Bundle };
+
 // Chunk defines the base and size of a chunk of commands.
 struct CommandStreamChunk
 {
-    UPtr baseAddress = 0;
-    U32  sizeBytes = 0;
+    UPtr                baseAddress    = 0;
+    U32                 sizeBytes      = 0;
+    CommandType         type;
+    CommandInstance     instance;
 };
 
 struct ResourceTransition
@@ -39,9 +44,6 @@ public:
 
     typedef U32 Id;
     static const Id kBadId = ~0;
-
-    enum CommandInstance { Dynamic, Static, OneTimeOnly };
-    enum CommandType { Primary, Bundle };
 
     struct BeginDescription
     {
@@ -104,7 +106,10 @@ public:
 
     // Gets the stream chunk to process. This is the raw bytes of the stream consisting of 
     // all commands that have been recorded.
-    CommandStreamChunk getChunk() const;
+    const CommandStreamChunk* getChunks() const;
+
+    // Get the number of chunks that his command list holds.
+    uint getNumChunks() const { return m_chunks.size(); }
 
 private:
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
@@ -118,8 +123,7 @@ private:
     LinearScratchMemory<R_KB(256)> m_resourceAllocator;
 
     // Chunk defines the overall size of the command list.
-    CommandStreamChunk m_chunk;
-
+    std::vector<CommandStreamChunk> m_chunks;
     // Render command list id.
     Id m_id;
 };

@@ -45,7 +45,7 @@ void VulkanFrameProcess::beginFrame(const FrameDescription& frameDescription)
     if (frameDescription.swapchain)
     {
         VulkanSwapchain* swapchain = dynamic_cast<VulkanSwapchain*>(frameDescription.swapchain);
-        swapchain->aquireNextFrameIndex(frame.semaphore);
+        swapchain->aquireNextFrameIndex(frame.frameSemaphore);
         m_swapchainRef = swapchain;
     }
 }
@@ -69,7 +69,7 @@ FrameHandle VulkanFrameProcess::endFrame()
             UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType));
             VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
                 sizeof(VkPipelineStageFlags) * info->commandBufferCount);
-            waitSemaphorePtr[0] = frame.semaphore;
+            waitSemaphorePtr[0] = frame.frameSemaphore;
             info->waitSemaphoreCount = 1;
         }
     }
@@ -124,9 +124,12 @@ FrameHandle VulkanFrameProcess::endFrame()
 
         frame.frameStream.sizeBytes += submitSizeBytes;
     }
+
     FrameHandle handle = reinterpret_cast<FrameHandle>(&frame.frameStream);
-    
+
+    // Reset the swapchain link.
     m_swapchainRef = nullptr;
+
     return handle;
 }
 
@@ -136,7 +139,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
     Frame& frame = m_frames[currentFrameIndex()];
     CommandPool& pool = frame.commandPools[type];
-    VulkanCommandListEncoder encoder(m_device, pool);
+    VulkanCommandListEncoder encoder(m_device);
     ResultCode result = RecluseResult_Ok;
     
     const uint submitBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
@@ -174,12 +177,20 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
     for (uint i = 0; i < numLists ; ++i)
     {
-        VkCommandBuffer cmdBuffer = encoder(lists[i].getChunk());
-        VkCommandBuffer* cmd = (VkCommandBuffer*)packet;
-        *cmd = cmdBuffer;
+        const CommandStreamChunk* chunks = lists[i].getChunks();
+        const uint numChunks = lists[i].getNumChunks();
 
-        packet += sizeof(VkCommandBuffer);    
+        for (uint chunkIndex = 0; chunkIndex < numChunks; ++chunkIndex)
+        {
+            VkCommandBuffer cmdBuffer = pool.obtainCommandBuffer(m_device, chunks[chunkIndex].type, chunks[chunkIndex].instance); 
+            encoder(chunks[chunkIndex], cmdBuffer);
+            VkCommandBuffer* cmd = (VkCommandBuffer*)packet;
+            *cmd = cmdBuffer;
+            packet += sizeof(VkCommandBuffer);    
+        }
     }
+
+    m_workerPool.waitIdle();
 
     const UPtr waitStageFlagsStartAddress = packet;
     
@@ -222,9 +233,9 @@ void VulkanFrameProcess::release()
             vkDestroyFence(m_device, frame.fence, nullptr);
         frame.fence = nullptr;
 
-        if (frame.semaphore)
-            vkDestroySemaphore(m_device, frame.semaphore, nullptr);
-        frame.semaphore = nullptr;
+        if (frame.frameSemaphore)
+            vkDestroySemaphore(m_device, frame.frameSemaphore, nullptr);
+        frame.frameSemaphore = nullptr;
 
         for (auto& it : frame.commandPools)
         {
@@ -288,7 +299,7 @@ void VulkanFrameProcess::initialize()
 
         VkSemaphoreCreateInfo semaphoreCi   = { };
         semaphoreCi.sType                   = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &frame.semaphore);
+        vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &frame.frameSemaphore);
     }
     
     m_workerPool.start();
@@ -312,30 +323,30 @@ ResultCode VulkanFrameProcess::signalFences(Fence* fences, uint numFences)
     return RecluseResult_NoImpl;
 }
 
-VkResult VulkanFrameProcess::CommandPool::obtainCommandBuffers(VkDevice device, CommandList::CommandType type, CommandList::CommandInstance instance, uint numBuffers, VkCommandBuffer* out)
+VkCommandBuffer* VulkanFrameProcess::CommandPool::obtainCommandBuffers(VkDevice device, CommandType type, CommandInstance instance, uint numBuffers)
 {
-    VkResult result = VK_SUCCESS;
-    if (type == CommandList::CommandType::Primary)
+    VkCommandBuffer* result = nullptr;
+    if (type == CommandType::Primary)
     {
-        if (instance == CommandList::CommandInstance::Dynamic)
+        if (instance == CommandInstance::Dynamic)
         {
-            result = primary.obtainCommandBuffers(device, pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, out, numBuffers, 2);
+            result = primary.obtainCommandBuffers(device, pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, numBuffers, 2);
         }
     }
-    else if (type == CommandList::CommandType::Bundle)
+    else if (type == CommandType::Bundle)
     {
-        if (instance == CommandList::CommandInstance::Dynamic)
+        if (instance == Dynamic)
         {
-            result = secondary.obtainCommandBuffers(device, pool, VK_COMMAND_BUFFER_LEVEL_SECONDARY, out, numBuffers, 2);
+            result = secondary.obtainCommandBuffers(device, pool, VK_COMMAND_BUFFER_LEVEL_SECONDARY, numBuffers, 2);
         }
     }
     return result;
 }
 
-VkResult VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuffers(VkDevice device, VkCommandPool pool, VkCommandBufferLevel level, VkCommandBuffer* out, uint numRequested, uint numOverflowCount)
+VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuffers(VkDevice device, VkCommandPool pool, VkCommandBufferLevel level, uint numRequested, uint numOverflowCount)
 {
     VkResult result = VK_SUCCESS;
-    if (numRequested == 0) return result;
+    if (numRequested == 0) return nullptr;
 
     if ((numRequested + currentCbIndex) >= commandbuffers.size())
     {
@@ -344,28 +355,33 @@ VkResult VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuf
         VkCommandBufferAllocateInfo info = { };
         info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         info.commandPool = pool;
-        info.commandBufferCount = numRequested;
+        info.commandBufferCount = numRequested + numOverflowCount; // Overflowing buffers also need to be allocated.
         info.level = level;
 
         result = vkAllocateCommandBuffers(device, &info, &commandbuffers[currentCbIndex]);
     }
 
-    for (uint i = 0; i < numRequested; ++i)
-    {
-        out[i] = commandbuffers[currentCbIndex + i];
-    }
+    //for (uint i = 0; i < numRequested; ++i)
+    //{
+    //    out[i] = commandbuffers[currentCbIndex + i];
+    //}
+    VkCommandBuffer* buffers = nullptr;
 
     if (result == VK_SUCCESS)
+    {
+        buffers = &commandbuffers[currentCbIndex];
         currentCbIndex += numRequested;
+    }
 
-    return result;
+    return buffers;
 }
 
-VkCommandBuffer VulkanFrameProcess::CommandPool::obtainCommandBuffer(VkDevice device, CommandList::CommandType type, CommandList::CommandInstance instance)
+VkCommandBuffer VulkanFrameProcess::CommandPool::obtainCommandBuffer(VkDevice device, CommandType type, CommandInstance instance)
 {
-    VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-    VkResult result = obtainCommandBuffers(device, type, instance, 1, &cmdBuffer);
-    R_ASSERT(result == VK_SUCCESS);
+    VkCommandBuffer cmdBuffer = nullptr;
+    VkCommandBuffer* result = obtainCommandBuffers(device, type, instance, 1);
+    if (result) 
+        cmdBuffer = *result;
     return cmdBuffer;
 }
 
@@ -374,11 +390,10 @@ void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()
     currentCbIndex = 0;
 }
 
-VkCommandBuffer VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk)
+VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, VkCommandBuffer commandbuffer)
 {
     UPtr address = chunk.baseAddress;
     const UPtr endAddress = chunk.baseAddress + chunk.sizeBytes;
-    VkCommandBuffer commandbuffer = VK_NULL_HANDLE;
 
     while (address < endAddress)
     {
@@ -387,12 +402,9 @@ VkCommandBuffer VulkanFrameProcess::VulkanCommandListEncoder::encode(const Comma
         {
             case CommandOpcode_Begin:
             {
-                CommandListDescription* description = (CommandListDescription*)(address + sizeof(CommandHeader));
-                commandbuffer = m_pool.obtainCommandBuffer(m_device, description->type, description->instance);
-
                 VkCommandBufferBeginInfo beginInfo = { };
                 beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                beginInfo.flags = description->instance == CommandList::OneTimeOnly ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
+                beginInfo.flags = chunk.instance == OneTimeOnly ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
                 vkBeginCommandBuffer(commandbuffer, &beginInfo);
                 break;
             }
@@ -404,6 +416,17 @@ VkCommandBuffer VulkanFrameProcess::VulkanCommandListEncoder::encode(const Comma
             case CommandOpcode_BarrierTransition:
             {
                 BarrierTransitionHeader* transitionHeader = (BarrierTransitionHeader*)(address + sizeof(CommandHeader));
+                const uint numTransitions = transitionHeader->numTransitions;
+                Transition* transitions = reinterpret_cast<Transition*>(reinterpret_cast<UPtr>(transitionHeader) + sizeof(BarrierTransitionHeader));
+                for (uint i = 0; i < numTransitions; ++ i)
+                {
+                    Transition& transition = transitions[i];
+                    VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
+                    if (nativeResource->isImage())
+                        nativeResource->get<VkImage>();
+                    else
+                        nativeResource->get<VkBuffer>();
+                }
                 break;
             }
             default:
@@ -413,7 +436,7 @@ VkCommandBuffer VulkanFrameProcess::VulkanCommandListEncoder::encode(const Comma
         address += CommandHeader::packetSizeBytes(header);
     }
 
-    return commandbuffer;
+    return VK_SUCCESS;
 }
 } // Vulkan
 } // RenderApi

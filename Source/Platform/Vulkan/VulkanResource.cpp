@@ -1,9 +1,13 @@
 // 
 #include "VulkanResource.hpp"
+#include <Recluse/Threading/Threading.hpp>
 
 namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
+
+static MutexGuard resourceCounterMutex = { };
+static uint kResourceCounter = 0;
 
 VkMemoryRequirements VulkanResource::queryBufferMemoryRequirements(VkDevice device, VkBuffer buffer)
 {
@@ -74,12 +78,18 @@ ResourceViewId VulkanResource::defaultView()
 
 ResourceState VulkanResource::getCurrentState() const
 {
-    return ResourceState_CopySource;
+    return m_currentState;
 }
 
 Resource::Description VulkanResource::getDescription() const
 {
     return { };
+}
+
+uint VulkanResource::makeResourceId()
+{
+    ScopedLock _(resourceCounterMutex);
+    return kNumFirstReservedIdentifers + kResourceCounter++;
 }
 } // Vulkan
 } // RenderApi 

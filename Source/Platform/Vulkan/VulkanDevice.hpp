@@ -12,6 +12,7 @@
 #include <RecluseRenderApi_exports.hpp>
 #include <vector>
 #include <map>
+#include <unordered_map>
 
 namespace Recluse {
 namespace RenderApi {
@@ -80,7 +81,8 @@ private:
     VkQueue                 m_computeQueue;
     VkQueue                 m_copyQueue;
 
-    std::map<VkSurfaceKHR, VulkanSwapchain> m_swapchainMap;
+    std::map<VkSurfaceKHR, VulkanSwapchain>         m_swapchainMap;
+    std::vector<ResourceId>                         m_resourceMap;
 };
 } // Vulkan
 } // RenderApi

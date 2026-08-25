@@ -6,6 +6,7 @@
 #include <Recluse/Threading/ThreadPool.hpp>
 #include <Recluse/RenderApi/Device.hpp>
 #include <Recluse/Memory/LinearScratchMemory.hpp>
+#include <Recluse/Threading/Threading.hpp>
 
 #include "VulkanCommon.hpp"
 #include "VulkanDevice.hpp"
@@ -54,12 +55,11 @@ public:
     class VulkanCommandListEncoder
     {
     public:
-        VulkanCommandListEncoder(VkDevice device, CommandPool& commandPool) : m_device(device), m_pool(commandPool) { }
-        VkCommandBuffer encode(const CommandStreamChunk& chunk);
-        VkCommandBuffer operator()(const CommandStreamChunk& chunk) { return encode(chunk); }
+        VulkanCommandListEncoder(VkDevice device) : m_device(device) { }
+        VkResult encode(const CommandStreamChunk& chunk, VkCommandBuffer buffer);
+        VkResult operator()(const CommandStreamChunk& chunk, VkCommandBuffer buffer) { return encode(chunk, buffer); }
     private:
         VkDevice m_device;
-        CommandPool& m_pool;
     };
 private:
 
@@ -81,8 +81,8 @@ private:
             uint currentCbIndex;
 
             void                       reset();
-            VkResult                   obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
-                                                VkCommandBufferLevel level, VkCommandBuffer* out, 
+            VkCommandBuffer*           obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
+                                                VkCommandBufferLevel level, 
                                                 uint numRequested, uint numOverflowCount);
         };
 
@@ -91,10 +91,9 @@ private:
         CommandBufferHandler            secondary;
 
         VkCommandBuffer                 obtainCommandBuffer(VkDevice device, 
-                                            CommandList::CommandType type, CommandList::CommandInstance instance);
-        VkResult                        obtainCommandBuffers(VkDevice device, 
-                                            CommandList::CommandType type, CommandList::CommandInstance instance, uint numBuffers,
-                                            VkCommandBuffer* out);
+                                            CommandType type, CommandInstance instance);
+        VkCommandBuffer*                obtainCommandBuffers(VkDevice device, 
+                                            CommandType type, CommandInstance instance, uint numBuffers);
     private:
     };
 
@@ -105,7 +104,7 @@ private:
         FrameStream                     frameStream;
         std::map<uint, CommandPool>     commandPools;
         VkFence                         fence;
-        VkSemaphore                     semaphore;
+        VkSemaphore                     frameSemaphore;
     };
 
     std::vector<Frame>              m_frames;

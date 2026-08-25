@@ -242,7 +242,7 @@ void VulkanSwapchain::initializeSwapchainResources()
     for (uint i = 0; i < m_imageResources.size(); ++i)
     {
         // Make the handlers.
-        m_imageResources[i] = VulkanResource(images[i]);
+        m_imageResources[i] = std::move(VulkanResource(images[i], { i }));
     }
 }
 
@@ -257,6 +257,12 @@ void VulkanSwapchain::destroySwapchainResources()
     }
 
     m_imageResources.clear();
+}
+
+VulkanResource& VulkanSwapchain::getNativeResource(ResourceId id)
+{
+    R_ASSERT(id.value != ResourceId::kBadId);
+    return m_imageResources[id.value];
 }
 } // Vulkan
 } // RenderApi 

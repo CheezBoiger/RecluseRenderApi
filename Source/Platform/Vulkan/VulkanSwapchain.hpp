@@ -26,6 +26,7 @@ public:
 
     // Initialize the swapchain.
     void                        initialize(VulkanDevice* device);
+    VulkanResource&             getNativeResource(ResourceId id);
 
     // Release the swapchain, this is essential for destroying the swaphain resources.
     void                        release();

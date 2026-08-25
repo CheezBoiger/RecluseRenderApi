@@ -96,8 +96,8 @@ struct CommandHeader
 
 struct CommandListDescription
 {
-    CommandList::CommandType type;
-    CommandList::CommandInstance instance;
+    CommandType type;
+    CommandInstance instance;
 };
 
 struct BindPipelineCommand
@@ -150,8 +150,8 @@ struct BindRenderTargetsHeader
 
 struct Transition
 {
-    ResourceId id;
-    ResourceState resourceState;
+    Resource*       resource;
+    ResourceState   resourceState;
 };
 
 struct BarrierTransitionHeader

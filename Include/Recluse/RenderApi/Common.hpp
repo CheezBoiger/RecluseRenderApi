@@ -17,12 +17,18 @@ namespace Recluse {
 namespace RenderApi {
 
 typedef U32     PipelineId;
-typedef U32     ResourceId;
 typedef U32     SamplerId;
 
 typedef U64     ResourceViewId;
 typedef UPtr    Fence;
 typedef void*   WindowHandle;
+
+class ResourceId
+{
+public:
+    static const uint kBadId = ~0;
+    uint value = kBadId;
+};
 
 enum class Api : u32
 {

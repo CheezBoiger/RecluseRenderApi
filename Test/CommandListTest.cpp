@@ -20,31 +20,24 @@ TEST(CommandListTest, SimpleCommand)
     list.begin();
     list.end();
 
-    CommandStreamChunk chunk = list.getChunk();
+    const CommandStreamChunk* chunks = list.getChunks();
+    const CommandStreamChunk& chunk = chunks[0]; 
 
     uint offsetBytes = 0;
     UPtr cursor = chunk.baseAddress;
 
     CommandHeader* header = reinterpret_cast<CommandHeader*>(cursor);
     EXPECT_EQ(header->opcode, CommandOpcode_Begin);
-    EXPECT_EQ(header->size, sizeof(CommandListDescription));
+    EXPECT_EQ(header->size, 0);
 
     cursor += sizeof(CommandHeader);
-
-    CommandListDescription* desc = reinterpret_cast<CommandListDescription*>(cursor);
-    EXPECT_EQ(desc->instance, CommandList::Dynamic);
-    EXPECT_EQ(desc->type, CommandList::Primary);
-
-    cursor += header->size;
 
     header = reinterpret_cast<CommandHeader*>(cursor);
     EXPECT_EQ(header->opcode, CommandOpcode_End);
     EXPECT_EQ(header->size, 0);
 
-    EXPECT_EQ(chunk.sizeBytes, 16);
+    EXPECT_EQ(chunk.sizeBytes, 8);
     list.reset();
 
-    chunk = list.getChunk();
-    EXPECT_EQ(chunk.baseAddress, 0);
-    EXPECT_EQ(chunk.sizeBytes, 0);
+    EXPECT_EQ(list.getNumChunks(), 0);
 }

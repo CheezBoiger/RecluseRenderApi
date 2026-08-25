@@ -176,7 +176,7 @@ TEST(VulkanTest, CreateDevice)
         frameProcessor->beginFrame(frameDescription);
         CommandList commandlist;
 
-        commandlist.begin({ CommandList::Primary, CommandList::Dynamic });
+        commandlist.begin({ Primary, Dynamic });
 
         commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
 
@@ -193,7 +193,7 @@ TEST(VulkanTest, CreateDevice)
 
         device->processFrame(frameProcessor->endFrame());
 
-        if (i == 10000)
+        if (i == 1000)
             window->close();
     }
 
