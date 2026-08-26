@@ -28,25 +28,30 @@ void VulkanFrameProcess::beginFrame(const FrameDescription& frameDescription)
     vkResetFences(m_device, 1, &m_frames[frameIndex].fence);
 
     Frame& frame = m_frames[frameIndex];
-    frame.frameStream.baseAddress = frame.frameMemory.getBaseAddress();
-    frame.frameStream.sizeBytes = 0;
-    frame.frameMemory.clear();
-    frame.scratch.clear();
-
-    for (auto& it : frame.commandPools)
-    {
-        VkResult result = vkResetCommandPool(m_device, it.second.pool, 0);
-        R_ASSERT(result == VK_SUCCESS);
-
-        it.second.primary.reset();
-        it.second.secondary.reset();
-    }
+    frame.reset(m_device);
 
     if (frameDescription.swapchain)
     {
         VulkanSwapchain* swapchain = dynamic_cast<VulkanSwapchain*>(frameDescription.swapchain);
         swapchain->aquireNextFrameIndex(frame.frameSemaphore);
         m_swapchainRef = swapchain;
+    }
+}
+
+void VulkanFrameProcess::Frame::reset(VkDevice device)
+{
+    frameStream.baseAddress = frameMemory.getBaseAddress();
+    frameStream.sizeBytes   = 0;
+    frameMemory.clear();
+    scratch.clear();
+
+    for (auto& it : commandPools)
+    {
+        VkResult result = vkResetCommandPool(device, it.second.pool, 0);
+        R_ASSERT(result == VK_SUCCESS);
+
+        it.second.primary.reset();
+        it.second.secondary.reset();
     }
 }
 
@@ -60,17 +65,18 @@ FrameHandle VulkanFrameProcess::endFrame()
     if (addr < endAddr)
     {
         // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
-        VkFence* fence = reinterpret_cast<VkFence*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr));
-        *fence = frame.fence;
+        VkFence* fence  = reinterpret_cast<VkFence*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr));
+        *fence          = frame.fence;
 
         if (m_swapchainRef)
         {
-            VkSubmitInfo* info = reinterpret_cast<VkSubmitInfo*>(addr + sizeof(SubmitType));
-            UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType));
-            VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
-                sizeof(VkPipelineStageFlags) * info->commandBufferCount);
-            waitSemaphorePtr[0] = frame.frameSemaphore;
-            info->waitSemaphoreCount = 1;
+            uint* waitSemaphoreCount        = reinterpret_cast<uint*>(addr + sizeof(SubmitType) + sizeof(uint));
+            const uint commandBufferCount   = *reinterpret_cast<uint*>(addr + sizeof(SubmitType));
+            UPtr data                       = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType));
+            VkSemaphore* waitSemaphorePtr   = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
+                                                sizeof(VkPipelineStageFlags) * commandBufferCount);
+            waitSemaphorePtr[0]             = frame.frameSemaphore;
+            *waitSemaphoreCount             += 1;
         }
     }
 
@@ -80,47 +86,46 @@ FrameHandle VulkanFrameProcess::endFrame()
         {
             while (addr < endAddr)
             {
-                const uint sizeBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
+                const uint sizeBytes = sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
                 if ((addr + sizeBytes) >= endAddr)
                     break;
                 addr += sizeBytes;
             }
-
+            uint* numSignalSemaphores = reinterpret_cast<uint*>(addr + sizeof(SubmitType) + sizeof(uint) * 2);
+            const uint commandBufferCount = *reinterpret_cast<uint*>(addr + sizeof(SubmitType));
             // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
-            VkSubmitInfo* info = reinterpret_cast<VkSubmitInfo*>(addr + sizeof(SubmitType));
-            UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType));
-            VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
-                sizeof(VkPipelineStageFlags) * info->commandBufferCount);
-            VkSemaphore* signalSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * info->commandBufferCount + 
-                sizeof(VkPipelineStageFlags) * info->commandBufferCount + sizeof(VkSemaphore) * kNumMaxWaitSemaphores);
+            UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType));
+            VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
+                sizeof(VkPipelineStageFlags) * commandBufferCount);
+            VkSemaphore* signalSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
+                sizeof(VkPipelineStageFlags) * commandBufferCount + sizeof(VkSemaphore) * kNumMaxWaitSemaphores);
             signalSemaphorePtr[0] = m_swapchainRef->currentSignalSemaphore();
-            info->signalSemaphoreCount = 1;
+            *numSignalSemaphores += 1;
         }
 
-        const uint submitSizeBytes = sizeof(SubmitType) + sizeof(VkPresentInfoKHR);
-        const uint scratchSizeBytes = sizeof(VkSwapchainKHR) 
-            + sizeof(uint) + sizeof(VkSemaphore);
+        const uint submitSizeBytes  = sizeof(SubmitType) + sizeof(VkPresentInfoKHR);
+        const uint scratchSizeBytes = sizeof(VkSwapchainKHR) + sizeof(uint) + sizeof(VkSemaphore);
 
-        UPtr present = (UPtr)frame.frameMemory.allocateRaw(submitSizeBytes);
-        SubmitType* submitType = (SubmitType*)present;
-        *submitType = SubmitType_Present;
-        VkPresentInfoKHR* info = (VkPresentInfoKHR*)(present + sizeof(SubmitType));
+        UPtr present                = (UPtr)frame.frameMemory.allocateRaw(submitSizeBytes);
+        SubmitType* submitType      = (SubmitType*)present;
+        *submitType                 = SubmitType_Present;
+        VkPresentInfoKHR* info      = (VkPresentInfoKHR*)(present + sizeof(SubmitType));
 
-        UPtr scratchAddress = (UPtr)frame.scratch.allocateRaw(scratchSizeBytes);
-        VkSwapchainKHR* swapchain = (VkSwapchainKHR*)scratchAddress;
-        *swapchain = m_swapchainRef->get();
-        uint* imageIndex = (uint*)(scratchAddress + sizeof(VkSwapchainKHR));
-        *imageIndex = m_swapchainRef->currentImageIndex();
-        VkSemaphore* semaphore = (VkSemaphore*)(scratchAddress + sizeof(VkSwapchainKHR) + sizeof(uint));
-        *semaphore = m_swapchainRef->currentSignalSemaphore();
+        UPtr scratchAddress         = (UPtr)frame.scratch.allocateRaw(scratchSizeBytes);
+        VkSwapchainKHR* swapchain   = (VkSwapchainKHR*)scratchAddress;
+        *swapchain                  = m_swapchainRef->get();
+        uint* imageIndex            = (uint*)(scratchAddress + sizeof(VkSwapchainKHR));
+        *imageIndex                 = m_swapchainRef->currentImageIndex();
+        VkSemaphore* semaphore      = (VkSemaphore*)(scratchAddress + sizeof(VkSwapchainKHR) + sizeof(uint));
+        *semaphore                  = m_swapchainRef->currentSignalSemaphore();
     
-        *info = { };
-        info->sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        info->pImageIndices = imageIndex;
-        info->swapchainCount = 1;
-        info->pSwapchains = swapchain;
-        info->pWaitSemaphores = semaphore;
-        info->waitSemaphoreCount = 1;
+        *info                       = { };
+        info->sType                 = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+        info->pImageIndices         = imageIndex;
+        info->swapchainCount        = 1;
+        info->pSwapchains           = swapchain;
+        info->pWaitSemaphores       = semaphore;
+        info->waitSemaphoreCount    = 1;
 
         frame.frameStream.sizeBytes += submitSizeBytes;
     }
@@ -141,8 +146,18 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     CommandPool& pool = frame.commandPools[type];
     VulkanCommandListEncoder encoder(m_device);
     ResultCode result = RecluseResult_Ok;
+
+    struct Submittal {
+        SubmitType          type;
+        CommandQueueType    queueType;
+        uint                numCommandLists;
+        uint                numWaitSemaphores;
+        uint                numSignalSemaphores;
+        UPtr                data;
+        VkFence             fence;
+    };
     
-    const uint submitBytes = sizeof(SubmitType) + sizeof(VkSubmitInfo) + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
+    const uint submitBytes = sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr) + sizeof(VkFence) * kNumMaxSignalFences;
     const uint scratchSizeBytes = sizeof(VkCommandBuffer) * numLists + 
         sizeof(VkPipelineStageFlags) * numLists +
         sizeof(VkSemaphore) * kNumMaxWaitSemaphores + sizeof(VkSemaphore) * kNumMaxSignalSemaphores;
@@ -152,13 +167,15 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     *submitType = SubmitType_CommandBuffers;
 
     packet += sizeof(SubmitType);
-
-    VkSubmitInfo* info = reinterpret_cast<VkSubmitInfo*>(packet);
-    info->sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    info->pNext = nullptr;
-
-    packet += sizeof(VkSubmitInfo);
-
+    uint* submitNumCommandLists = reinterpret_cast<uint*>(packet);
+    *submitNumCommandLists = numLists;
+    packet += sizeof(uint);
+    uint* submitWaitSemaphores = reinterpret_cast<uint*>(packet);
+    *submitWaitSemaphores = 0; // for now nothing.
+    packet += sizeof(uint);
+    uint* submitSignalSemaphores = reinterpret_cast<uint*>(packet);
+    *submitSignalSemaphores = 0; // for now nothing.
+    packet += sizeof(uint);
     CommandQueueType* queueType = reinterpret_cast<CommandQueueType*>(packet);
     *queueType = type;
 
@@ -186,7 +203,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
             encoder(chunks[chunkIndex], cmdBuffer);
             VkCommandBuffer* cmd = (VkCommandBuffer*)packet;
             *cmd = cmdBuffer;
-            packet += sizeof(VkCommandBuffer);    
+            packet += sizeof(VkCommandBuffer);
         }
     }
 
@@ -203,16 +220,6 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
     UPtr waitSemaphoreStartAddress = packet;
     UPtr signalSemaphoreStartAddress = packet + sizeof(VkSemaphore) * kNumMaxWaitSemaphores; 
-
-    // Now fill in the VkSubmitInfo
-
-    info->commandBufferCount = numLists;
-    info->pCommandBuffers = (VkCommandBuffer*)commandBufferStartAddress;
-    info->signalSemaphoreCount = 0;
-    info->waitSemaphoreCount = 0;
-    info->pSignalSemaphores = (VkSemaphore*)signalSemaphoreStartAddress;
-    info->pWaitSemaphores = (VkSemaphore*)waitSemaphoreStartAddress;
-    info->pWaitDstStageMask = (VkPipelineStageFlags*)waitStageFlagsStartAddress;
 
     frame.frameStream.sizeBytes += submitBytes;
 
@@ -404,7 +411,7 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
             {
                 VkCommandBufferBeginInfo beginInfo = { };
                 beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                beginInfo.flags = chunk.instance == OneTimeOnly ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
+                beginInfo.flags = chunk.type == Dynamic ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
                 vkBeginCommandBuffer(commandbuffer, &beginInfo);
                 break;
             }

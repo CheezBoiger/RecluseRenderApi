@@ -24,9 +24,9 @@ class VulkanFrameProcess : public FrameProcess
     class CommandPool;
 
 public:
-    static const uint kNumMaxSignalSemaphores = 1;
-    static const uint kNumMaxWaitSemaphores = 1;
-    static const uint kNumMaxSignalFences = 1;
+    static const uint kNumMaxSignalSemaphores   = 1;
+    static const uint kNumMaxWaitSemaphores     = 1;
+    static const uint kNumMaxSignalFences       = 1;
     
     struct FrameStream
     {
@@ -99,21 +99,23 @@ private:
 
     struct Frame
     {
-        LinearScratchMemory<1024>       scratch;
-        LinearScratchMemory<1024>       frameMemory;
+        LinearScratchMemory<R_KB(4)>    scratch;
+        LinearScratchMemory<R_KB(4)>    frameMemory;
         FrameStream                     frameStream;
         std::map<uint, CommandPool>     commandPools;
         VkFence                         fence;
         VkSemaphore                     frameSemaphore;
+
+        void                            reset(VkDevice device);
     };
 
-    std::vector<Frame>              m_frames;
-    uint                            m_currentFrameIndex;
-    uint                            m_maxFramesInFlight;
-    ThreadPool                      m_workerPool;
-    VkDevice                        m_device;
-    VulkanDevice::QueueIndices      m_queueIndices;
-    VulkanSwapchain*                m_swapchainRef;
+    std::vector<Frame>                  m_frames;
+    uint                                m_currentFrameIndex;
+    uint                                m_maxFramesInFlight;
+    ThreadPool                          m_workerPool;
+    VkDevice                            m_device;
+    VulkanDevice::QueueIndices          m_queueIndices;
+    VulkanSwapchain*                    m_swapchainRef;
 };
 } // Vulkan
 } // RenderApi

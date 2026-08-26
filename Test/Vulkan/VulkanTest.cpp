@@ -177,16 +177,7 @@ TEST(VulkanTest, CreateDevice)
         CommandList commandlist;
 
         commandlist.begin({ Primary, Dynamic });
-
-        commandlist.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
-
-        ResourceViewDescription viewDesc = { };
-        ResourceViewId id = swapchain->currentBackbuffer()->asView(viewDesc);
-        commandlist.bindRenderTargets(&id, 1, 0);
-        f32 co[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-        commandlist.clearRenderTarget(0, co, { });
         commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
-
         commandlist.end();
 
         frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);

@@ -19,6 +19,9 @@ class VulkanResourceView
 public: 
 };
 
+// Vulkan resource object. This object manages the state and structure of a vulkan buffer or image.
+// It does not handle the destruction or creation of the buffer or image itself, but it does provide the 
+// necessary info required to handle the object at runtime or for prior creation in the device.
 class VulkanResource : public Resource
 {
 public:

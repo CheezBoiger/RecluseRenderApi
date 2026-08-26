@@ -180,16 +180,39 @@ ResultCode VulkanDevice::processFrame(FrameHandle frame)
         {
             case VulkanFrameProcess::SubmitType_CommandBuffers:
             {
-                VkSubmitInfo* info = (VkSubmitInfo*)address;
-                address += sizeof(VkSubmitInfo);
-                CommandQueueType commandQueueType = *((CommandQueueType*)address);
+                const uint numCommandLists = *reinterpret_cast<uint*>(address);
+                address += sizeof(uint);
+                const uint numWaitSemaphores = *reinterpret_cast<uint*>(address);
+                address += sizeof(uint);
+                const uint numSignalSemaphores = *reinterpret_cast<uint*>(address);
+                address += sizeof(uint);
+                const CommandQueueType commandQueueType = *((CommandQueueType*)address);
                 address += sizeof(CommandQueueType);
-                address += sizeof(UPtr); // Skip data.
-                VkFence fence = *(VkFence*)address;
+                UPtr data = *reinterpret_cast<UPtr*>(address);
+                address += sizeof(UPtr);
+                const VkFence fence = *(VkFence*)address;
                 address += sizeof(VkFence) * VulkanFrameProcess::kNumMaxSignalFences;
 
+                VkCommandBuffer* pCommandBuffers = reinterpret_cast<VkCommandBuffer*>(data);
+                data += sizeof(VkCommandBuffer) * numCommandLists;
+                VkPipelineStageFlags* pWaitFlags = reinterpret_cast<VkPipelineStageFlags*>(data);
+                data += sizeof(VkPipelineStageFlags) * numCommandLists;
+                VkSemaphore* pWaitSemaphores = reinterpret_cast<VkSemaphore*>(data);
+                data += sizeof(VkSemaphore) * VulkanFrameProcess::kNumMaxWaitSemaphores;
+                VkSemaphore* pSignalSemaphores = reinterpret_cast<VkSemaphore*>(data);
+                
+                VkSubmitInfo submitInfo = { };
+                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                submitInfo.commandBufferCount = numCommandLists;
+                submitInfo.pCommandBuffers = pCommandBuffers;
+                submitInfo.pWaitDstStageMask = pWaitFlags;
+                submitInfo.waitSemaphoreCount = numWaitSemaphores;
+                submitInfo.signalSemaphoreCount = numSignalSemaphores;
+                submitInfo.pSignalSemaphores = pSignalSemaphores;
+                submitInfo.pWaitSemaphores = pWaitSemaphores;
+
                 VkQueue queue = queryQueue(commandQueueType);
-                vkQueueSubmit(queue, 1, info, fence);
+                vkQueueSubmit(queue, 1, &submitInfo, fence);
                 break;
             }
             case VulkanFrameProcess::SubmitType_Present:

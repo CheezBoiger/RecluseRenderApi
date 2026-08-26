@@ -180,6 +180,16 @@ std::vector<VkExtensionProperties> VulkanAdapter::gatherExtensionProperties(VkPh
     return extensionProperties;
 }
 
+Bool VulkanAdapter::findSupportDeviceExtension(const char* ext, const char** exts, uint count)
+{
+    for (uint i = 0; i < count; ++i)
+    {
+        if (strcmp(ext, exts[i]) == 0)
+            return true;
+    }
+    return false;
+}
+
 static void checkAvailableExtensions(VkPhysicalDevice physicalDevice, std::vector<const char*>& requestedExtensions)
 {
     std::vector<VkExtensionProperties> extensionProperties = VulkanAdapter::gatherExtensionProperties(physicalDevice);
@@ -331,7 +341,6 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     }
 
     checkAvailableExtensions(m_physicalDevice, requestedExtensions);
-    
 
     uint32_t queueFamilyPropertyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(m_physicalDevice, &queueFamilyPropertyCount, nullptr);
@@ -383,6 +392,14 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
 
     Features features;
 
+    const Bool supportsTimelineSemaphore = findSupportDeviceExtension(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, requestedExtensions.data(), requestedExtensions.size());
+
+    if (supportsTimelineSemaphore)
+    {
+        VkPhysicalDeviceTimelineSemaphoreFeatures* timeline = features.add<VkPhysicalDeviceTimelineSemaphoreFeatures>();
+        timeline->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    }
+
     if (description.enableMeshShaders)
     {
         VkPhysicalDeviceMeshShaderFeaturesEXT* meshShader = features.add<VkPhysicalDeviceMeshShaderFeaturesEXT>();
@@ -391,11 +408,19 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
 
     vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features());
 
+    if (supportsTimelineSemaphore)
+    {
+        VkPhysicalDeviceTimelineSemaphoreFeatures* timeline = features.find<VkPhysicalDeviceTimelineSemaphoreFeatures>();
+        R_ASSERT(timeline->timelineSemaphore == true);
+    }
+
     if (description.enableMeshShaders)
     {
         VkPhysicalDeviceMeshShaderFeaturesEXT* meshShader = features.find<VkPhysicalDeviceMeshShaderFeaturesEXT>();
         if (meshShader)
         {
+            R_ASSERT(meshShader->meshShader == true);
+            R_ASSERT(meshShader->taskShader == true);
             meshShader->multiviewMeshShader = false;
             meshShader->primitiveFragmentShadingRateMeshShader = false;
         }

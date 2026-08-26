@@ -16,14 +16,29 @@ class Device;
 class Pipeline;
 class Resource;
 
-enum CommandInstance : u16 { Dynamic, Static, OneTimeOnly };
-enum CommandType : U16 { Primary, Bundle };
+enum CommandInstance : u8 
+{ 
+    // Command instance is dynamic, and is intended to be submitted once only per frame.
+    Dynamic, 
+    // Command instance is static, and is intended to be recorded once and used for multiple 
+    // submittals.
+    Static 
+};
+
+enum CommandType : u8 
+{
+    // Command list is a primary list type. 
+    Primary, 
+    // Command list type is a bundle, to be submitted and executed by a primary command list.
+    Bundle 
+};
 
 // Chunk defines the base and size of a chunk of commands.
 struct CommandStreamChunk
 {
     UPtr                baseAddress    = 0;
     U32                 sizeBytes      = 0;
+    u16                 id;
     CommandType         type;
     CommandInstance     instance;
 };
@@ -42,7 +57,7 @@ class RecluseRenderApi_PUBLIC_API CommandList
 {
 public:
 
-    typedef U32 Id;
+    typedef U16 Id;
     static const Id kBadId = ~0;
 
     struct BeginDescription

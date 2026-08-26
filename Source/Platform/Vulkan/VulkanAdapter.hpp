@@ -28,6 +28,7 @@ public:
     static Information                          gatherInformation(const VkPhysicalDeviceProperties& properties, uint index);
     static std::vector<VkExtensionProperties>   gatherExtensionProperties(VkPhysicalDevice physicalDevice);
     Bool                                        checkSupportsDeviceExtension(VkPhysicalDevice physicalDevice, const char* ext);
+    Bool                                        findSupportDeviceExtension(const char* ext, const char** exts, uint count);
 
     VulkanAdapter(VulkanContext* context = nullptr, VkPhysicalDevice physicalDevice = VK_NULL_HANDLE, uint adapterIndex = -1);
 

@@ -33,10 +33,11 @@ void CommandList::begin(const CommandList::BeginDescription& beginDescription)
 
     // Make a chunk and store for processing.
     CommandStreamChunk chunk;
-    chunk.baseAddress = (UPtr)command;
-    chunk.sizeBytes = sizeof(CommandHeader);
-    chunk.instance = beginDescription.instance;
-    chunk.type = beginDescription.type;
+    chunk.baseAddress   = (UPtr)command;
+    chunk.sizeBytes     = sizeof(CommandHeader);
+    chunk.instance      = beginDescription.instance;
+    chunk.type          = beginDescription.type;
+    chunk.id            = m_id;
 
     m_chunks.push_back(chunk);
 }
