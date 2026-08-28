@@ -22,8 +22,14 @@ class VulkanSwapchain;
 class VulkanFrameProcess : public FrameProcess
 {
     class CommandPool;
-
 public:
+    struct State {
+        ResourceState           resourceState;
+        VkAccessFlags           accessMask;
+        VkPipelineStageFlags    pipelineStage;
+    };
+    typedef std::unordered_map<VulkanResource::ResourceHandle, State> ResourceStateMap;
+
     static const uint kNumMaxSignalSemaphores   = 1;
     static const uint kNumMaxWaitSemaphores     = 1;
     static const uint kNumMaxSignalFences       = 1;
@@ -52,15 +58,6 @@ public:
     ResultCode                  waitIdle() override;
     void                        release();
 
-    class VulkanCommandListEncoder
-    {
-    public:
-        VulkanCommandListEncoder(VkDevice device) : m_device(device) { }
-        VkResult encode(const CommandStreamChunk& chunk, VkCommandBuffer buffer);
-        VkResult operator()(const CommandStreamChunk& chunk, VkCommandBuffer buffer) { return encode(chunk, buffer); }
-    private:
-        VkDevice m_device;
-    };
 private:
 
     uint incrementFrameIndex() 
@@ -78,12 +75,14 @@ private:
         struct CommandBufferHandler
         {
             std::vector<VkCommandBuffer> commandbuffers;
+            std::unordered_map<VkCommandBuffer, ResourceStateMap> localResourceStateMap;
             uint currentCbIndex;
 
-            void                       reset();
-            VkCommandBuffer*           obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
+            void                        reset();
+            VkCommandBuffer*            obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
                                                 VkCommandBufferLevel level, 
                                                 uint numRequested, uint numOverflowCount);
+            ResourceStateMap*           obtainLocalResourceStateMap(VkCommandBuffer buffer);
         };
 
         VkCommandPool pool;
@@ -94,7 +93,30 @@ private:
                                             CommandType type, CommandInstance instance);
         VkCommandBuffer*                obtainCommandBuffers(VkDevice device, 
                                             CommandType type, CommandInstance instance, uint numBuffers);
+        ResourceStateMap*               obtainLocalStateMap(VkCommandBuffer commandbuffer, CommandType type, CommandInstance instance);
+        
     private:
+    };
+
+    struct StateTracker
+    {
+        VkCommandBuffer commandbuffer;
+        ResourceStateMap* localStateMap;
+    };
+
+    class VulkanCommandListEncoder
+    {
+    public:
+        VulkanCommandListEncoder(VkDevice device) 
+            : m_device(device)
+            , imageBarriers(256)
+            , bufferBarriers(256) { }
+        VkResult encode(const CommandStreamChunk& chunk, StateTracker& tracker);
+        VkResult operator()(const CommandStreamChunk& chunk, StateTracker& tracker) { return encode(chunk, tracker); }
+    private:
+        VkDevice m_device;
+        std::vector<VkImageMemoryBarrier>   imageBarriers;
+        std::vector<VkBufferMemoryBarrier>  bufferBarriers;
     };
 
     struct Frame
@@ -116,6 +138,7 @@ private:
     VkDevice                            m_device;
     VulkanDevice::QueueIndices          m_queueIndices;
     VulkanSwapchain*                    m_swapchainRef;
+    ResourceStateMap                    m_resourceStateMap;
 };
 } // Vulkan
 } // RenderApi

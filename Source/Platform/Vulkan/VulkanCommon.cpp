@@ -132,6 +132,22 @@ ResourceFormat getResourceFormat(VkFormat format)
     }
 }
 
+VkImageLayout getImageLayout(ResourceState state)
+{
+    switch (state) 
+    {
+        case ResourceState_Common:                 return VK_IMAGE_LAYOUT_GENERAL;
+        case ResourceState_UnorderedAccess:        return VK_IMAGE_LAYOUT_GENERAL;
+        case ResourceState_ShaderResource:         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        case ResourceState_CopyDestination:        return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        case ResourceState_CopySource:             return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        case ResourceState_RenderTarget:           return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        case ResourceState_DepthStencilReadOnly:   return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+        case ResourceState_DepthStencilWrite:      return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        case ResourceState_Present:                return VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        default: return VK_IMAGE_LAYOUT_UNDEFINED;
+    }
+}
 } // Vulkan
 } // RenderApi 
 } // Recluse

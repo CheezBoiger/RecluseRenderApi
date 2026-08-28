@@ -41,7 +41,7 @@ public:
 
     ResourceId                      getId() const { return m_id; }
 
-    virtual ResourceState           getCurrentState() const = 0;
+    virtual ResourceState           getInitialResourceState() const = 0;
 
     virtual Resource::Description   getDescription() const = 0;
 

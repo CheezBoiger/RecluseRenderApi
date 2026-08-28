@@ -4,6 +4,7 @@
 
 #include <Shared/CommandOps.hpp>
 
+#include <Recluse/Utility.hpp>
 #include <functional>
 
 namespace Recluse {
@@ -91,16 +92,16 @@ FrameHandle VulkanFrameProcess::endFrame()
                     break;
                 addr += sizeBytes;
             }
-            uint* numSignalSemaphores = reinterpret_cast<uint*>(addr + sizeof(SubmitType) + sizeof(uint) * 2);
-            const uint commandBufferCount = *reinterpret_cast<uint*>(addr + sizeof(SubmitType));
+            uint* numSignalSemaphores           = reinterpret_cast<uint*>(addr + sizeof(SubmitType) + sizeof(uint) * 2);
+            const uint commandBufferCount       = *reinterpret_cast<uint*>(addr + sizeof(SubmitType));
             // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
-            UPtr data = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType));
-            VkSemaphore* waitSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
-                sizeof(VkPipelineStageFlags) * commandBufferCount);
-            VkSemaphore* signalSemaphorePtr = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
-                sizeof(VkPipelineStageFlags) * commandBufferCount + sizeof(VkSemaphore) * kNumMaxWaitSemaphores);
-            signalSemaphorePtr[0] = m_swapchainRef->currentSignalSemaphore();
-            *numSignalSemaphores += 1;
+            UPtr data                           = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType));
+            VkSemaphore* waitSemaphorePtr       = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
+                                                    sizeof(VkPipelineStageFlags) * commandBufferCount);
+            VkSemaphore* signalSemaphorePtr     = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
+                                                    sizeof(VkPipelineStageFlags) * commandBufferCount + sizeof(VkSemaphore) * kNumMaxWaitSemaphores);
+            signalSemaphorePtr[0]               = m_swapchainRef->currentSignalSemaphore();
+            *numSignalSemaphores                += 1;
         }
 
         const uint submitSizeBytes  = sizeof(SubmitType) + sizeof(VkPresentInfoKHR);
@@ -161,36 +162,11 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     const uint scratchSizeBytes = sizeof(VkCommandBuffer) * numLists + 
         sizeof(VkPipelineStageFlags) * numLists +
         sizeof(VkSemaphore) * kNumMaxWaitSemaphores + sizeof(VkSemaphore) * kNumMaxSignalSemaphores;
-    
-    UPtr packet = (UPtr)frame.frameMemory.allocateRaw(submitBytes);
-    SubmitType* submitType = reinterpret_cast<SubmitType*>(packet);
-    *submitType = SubmitType_CommandBuffers;
-
-    packet += sizeof(SubmitType);
-    uint* submitNumCommandLists = reinterpret_cast<uint*>(packet);
-    *submitNumCommandLists = numLists;
-    packet += sizeof(uint);
-    uint* submitWaitSemaphores = reinterpret_cast<uint*>(packet);
-    *submitWaitSemaphores = 0; // for now nothing.
-    packet += sizeof(uint);
-    uint* submitSignalSemaphores = reinterpret_cast<uint*>(packet);
-    *submitSignalSemaphores = 0; // for now nothing.
-    packet += sizeof(uint);
-    CommandQueueType* queueType = reinterpret_cast<CommandQueueType*>(packet);
-    *queueType = type;
-
-    packet += sizeof(CommandQueueType);
-    UPtr* dataAddress = (UPtr*)packet;
-    packet += sizeof(UPtr);
-    
-    VkFence* fence = (VkFence*)packet;
-    packet += sizeof(VkFence);
 
     // scratch data allocation.
 
-    packet = (UPtr)frame.scratch.allocateRaw(scratchSizeBytes);
-    *dataAddress = packet;
-    const UPtr commandBufferStartAddress = packet;
+    PacketBuilder dataPacket(frame.scratch.allocateRaw(scratchSizeBytes));
+    UPtr startDataAddress = dataPacket.raw();
 
     for (uint i = 0; i < numLists ; ++i)
     {
@@ -200,26 +176,28 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
         for (uint chunkIndex = 0; chunkIndex < numChunks; ++chunkIndex)
         {
             VkCommandBuffer cmdBuffer = pool.obtainCommandBuffer(m_device, chunks[chunkIndex].type, chunks[chunkIndex].instance); 
-            encoder(chunks[chunkIndex], cmdBuffer);
-            VkCommandBuffer* cmd = (VkCommandBuffer*)packet;
-            *cmd = cmdBuffer;
-            packet += sizeof(VkCommandBuffer);
+            StateTracker tracker = { cmdBuffer, pool.obtainLocalStateMap(cmdBuffer, chunks[chunkIndex].type, chunks[chunkIndex].instance) };
+            encoder(chunks[chunkIndex], tracker);
+            dataPacket.write<VkCommandBuffer>(cmdBuffer);
         }
     }
 
     m_workerPool.waitIdle();
 
-    const UPtr waitStageFlagsStartAddress = packet;
-    
     for (uint i = 0; i < numLists; ++i)
     {
-        VkPipelineStageFlags* flags = (VkPipelineStageFlags*)packet;
-        *flags = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
-        packet += sizeof(VkPipelineStageFlags);
+        dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
 
-    UPtr waitSemaphoreStartAddress = packet;
-    UPtr signalSemaphoreStartAddress = packet + sizeof(VkSemaphore) * kNumMaxWaitSemaphores; 
+    PacketBuilder packet(frame.frameMemory.allocateRaw(submitBytes));
+
+    SubmitType* submitType          = packet.write(SubmitType_CommandBuffers);
+    uint* submitNumCommandLists     = packet.write(numLists);
+    uint* submitWaitSemaphores      = packet.write(0u);
+    uint* submitSignalSemaphores    = packet.write(0u);
+    CommandQueueType* queueType     = packet.write(type);
+    UPtr* dataAddress               = packet.write<UPtr>(startDataAddress);
+    VkFence* fence                  = packet.write<VkFence>(VK_NULL_HANDLE);
 
     frame.frameStream.sizeBytes += submitBytes;
 
@@ -350,6 +328,31 @@ VkCommandBuffer* VulkanFrameProcess::CommandPool::obtainCommandBuffers(VkDevice 
     return result;
 }
 
+VulkanFrameProcess::ResourceStateMap* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainLocalResourceStateMap(VkCommandBuffer buffer)
+{
+    return &localResourceStateMap[buffer];
+}
+
+VulkanFrameProcess::ResourceStateMap* VulkanFrameProcess::CommandPool::obtainLocalStateMap(VkCommandBuffer commandbuffer, CommandType type, CommandInstance instance)
+{
+    if (type == CommandType::Primary)
+    {
+        if (instance == CommandInstance::Dynamic)
+        {
+            return primary.obtainLocalResourceStateMap(commandbuffer);
+        }
+    }
+    else if (type == CommandType::Bundle)
+    {
+        if (instance == Dynamic)
+        {
+            return secondary.obtainLocalResourceStateMap(commandbuffer);
+        }
+    }
+    return primary.obtainLocalResourceStateMap(commandbuffer);
+}
+
+
 VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuffers(VkDevice device, VkCommandPool pool, VkCommandBufferLevel level, uint numRequested, uint numOverflowCount)
 {
     VkResult result = VK_SUCCESS;
@@ -366,12 +369,14 @@ VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCo
         info.level = level;
 
         result = vkAllocateCommandBuffers(device, &info, &commandbuffers[currentCbIndex]);
+
+        for (uint i = 0; i < numRequested; ++i)
+        {
+            VkCommandBuffer buffer = commandbuffers[currentCbIndex + i];
+            localResourceStateMap[buffer] = { };
+        }
     }
 
-    //for (uint i = 0; i < numRequested; ++i)
-    //{
-    //    out[i] = commandbuffers[currentCbIndex + i];
-    //}
     VkCommandBuffer* buffers = nullptr;
 
     if (result == VK_SUCCESS)
@@ -395,9 +400,11 @@ VkCommandBuffer VulkanFrameProcess::CommandPool::obtainCommandBuffer(VkDevice de
 void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()
 {
     currentCbIndex = 0;
+    for (auto& it : localResourceStateMap)
+        it.second.clear();
 }
 
-VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, VkCommandBuffer commandbuffer)
+VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, StateTracker& tracker)
 {
     UPtr address = chunk.baseAddress;
     const UPtr endAddress = chunk.baseAddress + chunk.sizeBytes;
@@ -412,12 +419,12 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                 VkCommandBufferBeginInfo beginInfo = { };
                 beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
                 beginInfo.flags = chunk.type == Dynamic ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
-                vkBeginCommandBuffer(commandbuffer, &beginInfo);
+                vkBeginCommandBuffer(tracker.commandbuffer, &beginInfo);
                 break;
             }
             case CommandOpcode_End:
             {
-                vkEndCommandBuffer(commandbuffer);
+                vkEndCommandBuffer(tracker.commandbuffer);
                 break;
             }
             case CommandOpcode_BarrierTransition:
@@ -430,9 +437,32 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                     Transition& transition = transitions[i];
                     VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
                     if (nativeResource->isImage())
-                        nativeResource->get<VkImage>();
+                    {
+                        VkImage image = nativeResource->get<VkImage>();
+                        VkImageMemoryBarrier memoryBarrier = { };
+                        auto& it = tracker.localStateMap->find(nativeResource->raw());
+
+                        if (it == tracker.localStateMap->end())
+                            (*tracker.localStateMap)[nativeResource->raw()] = { nativeResource->getInitialResourceState(), 0 };
+
+                        State& state = tracker.localStateMap->operator[](nativeResource->raw());
+                        memoryBarrier.oldLayout = getImageLayout(tracker.localStateMap->operator[](nativeResource->raw()).resourceState);
+                        memoryBarrier.newLayout = getImageLayout(transition.resourceState);
+                        memoryBarrier.image = image;
+                        memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                        memoryBarrier.srcAccessMask = state.accessMask;
+                        memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.resourceState);
+                        memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
+                        memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        
+                        state.resourceState = transition.resourceState;
+                        state.accessMask = memoryBarrier.dstAccessMask;
+                        state.pipelineStage;
+                    }
                     else
-                        nativeResource->get<VkBuffer>();
+                    {
+                        VkBuffer buffer = nativeResource->get<VkBuffer>();
+                    }
                 }
                 break;
             }

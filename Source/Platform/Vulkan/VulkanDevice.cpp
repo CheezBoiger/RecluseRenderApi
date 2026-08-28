@@ -5,6 +5,7 @@
 #include "VulkanFrameProcess.hpp"
 
 #include <Recluse/Messaging.hpp>
+#include <Recluse/Utility.hpp>
 
 #include <list>
 #include <map>
@@ -180,39 +181,33 @@ ResultCode VulkanDevice::processFrame(FrameHandle frame)
         {
             case VulkanFrameProcess::SubmitType_CommandBuffers:
             {
-                const uint numCommandLists = *reinterpret_cast<uint*>(address);
-                address += sizeof(uint);
-                const uint numWaitSemaphores = *reinterpret_cast<uint*>(address);
-                address += sizeof(uint);
-                const uint numSignalSemaphores = *reinterpret_cast<uint*>(address);
-                address += sizeof(uint);
-                const CommandQueueType commandQueueType = *((CommandQueueType*)address);
-                address += sizeof(CommandQueueType);
-                UPtr data = *reinterpret_cast<UPtr*>(address);
-                address += sizeof(UPtr);
-                const VkFence fence = *(VkFence*)address;
-                address += sizeof(VkFence) * VulkanFrameProcess::kNumMaxSignalFences;
+                SequentialBufferReader reader(address);
+                const uint numCommandLists              = *reader.consume<uint>();
+                const uint numWaitSemaphores            = *reader.consume<uint>();
+                const uint numSignalSemaphores          = *reader.consume<uint>();
+                const CommandQueueType commandQueueType = *reader.consume<CommandQueueType>();
+                UPtr data                               = *reader.consume<UPtr>();
+                const VkFence fence                     = *reader.consume<VkFence>();
 
-                VkCommandBuffer* pCommandBuffers = reinterpret_cast<VkCommandBuffer*>(data);
-                data += sizeof(VkCommandBuffer) * numCommandLists;
-                VkPipelineStageFlags* pWaitFlags = reinterpret_cast<VkPipelineStageFlags*>(data);
-                data += sizeof(VkPipelineStageFlags) * numCommandLists;
-                VkSemaphore* pWaitSemaphores = reinterpret_cast<VkSemaphore*>(data);
-                data += sizeof(VkSemaphore) * VulkanFrameProcess::kNumMaxWaitSemaphores;
-                VkSemaphore* pSignalSemaphores = reinterpret_cast<VkSemaphore*>(data);
+                SequentialBufferReader dataReader(data);
+                VkCommandBuffer* pCommandBuffers        = dataReader.consume<VkCommandBuffer>(numCommandLists);
+                VkPipelineStageFlags* pWaitFlags        = dataReader.consume<VkPipelineStageFlags>(numCommandLists);
+                VkSemaphore* pWaitSemaphores            = dataReader.consume<VkSemaphore>(VulkanFrameProcess::kNumMaxWaitSemaphores);
+                VkSemaphore* pSignalSemaphores          = dataReader.consume<VkSemaphore>(VulkanFrameProcess::kNumMaxSignalSemaphores);
                 
-                VkSubmitInfo submitInfo = { };
-                submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-                submitInfo.commandBufferCount = numCommandLists;
-                submitInfo.pCommandBuffers = pCommandBuffers;
-                submitInfo.pWaitDstStageMask = pWaitFlags;
-                submitInfo.waitSemaphoreCount = numWaitSemaphores;
+                VkSubmitInfo submitInfo         = { };
+                submitInfo.sType                = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+                submitInfo.commandBufferCount   = numCommandLists;
+                submitInfo.pCommandBuffers      = pCommandBuffers;
+                submitInfo.pWaitDstStageMask    = pWaitFlags;
+                submitInfo.waitSemaphoreCount   = numWaitSemaphores;
                 submitInfo.signalSemaphoreCount = numSignalSemaphores;
-                submitInfo.pSignalSemaphores = pSignalSemaphores;
-                submitInfo.pWaitSemaphores = pWaitSemaphores;
+                submitInfo.pSignalSemaphores    = pSignalSemaphores;
+                submitInfo.pWaitSemaphores      = pWaitSemaphores;
 
                 VkQueue queue = queryQueue(commandQueueType);
                 vkQueueSubmit(queue, 1, &submitInfo, fence);
+                address += reader.bytesRead();
                 break;
             }
             case VulkanFrameProcess::SubmitType_Present:

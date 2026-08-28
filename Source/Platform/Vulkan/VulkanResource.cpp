@@ -76,9 +76,9 @@ ResourceViewId VulkanResource::defaultView()
     return 0;
 }
 
-ResourceState VulkanResource::getCurrentState() const
+ResourceState VulkanResource::getInitialResourceState() const
 {
-    return m_currentState;
+    return m_initialResourceState;
 }
 
 Resource::Description VulkanResource::getDescription() const

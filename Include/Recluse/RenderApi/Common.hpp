@@ -135,6 +135,7 @@ public:
 enum ResourceState
 {
     ResourceState_Unknown,
+    ResourceState_Common,
     ResourceState_VertexBuffer,
     ResourceState_IndexBuffer,
     ResourceState_RenderTarget,
@@ -145,7 +146,8 @@ enum ResourceState
     ResourceState_TransferSource,
     ResourceState_CopySource = ResourceState_TransferSource,
     ResourceState_IndirectBuffer,
-    ResourceState_DepthStencil,
+    ResourceState_DepthStencilReadOnly,
+    ResourceState_DepthStencilWrite,
     ResourceState_UnorderedAccess,
     ResourceState_Present,
 };
