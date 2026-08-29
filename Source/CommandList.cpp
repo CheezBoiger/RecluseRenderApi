@@ -206,7 +206,7 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
     if (numBundles == 0) return;
 
     const uint dataSizeBytes = sizeof(BundlesHeader)
-        + sizeof(CommandStreamChunk) * numBundles;
+        + sizeof(CommandList*) * numBundles;
     const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes; 
 
     CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
@@ -220,14 +220,9 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
 
     for (uint i = 0; i < numBundles; ++i)
     {
-        const CommandStreamChunk* bundleChunks = bundles[i]->getChunks();
-        const uint numChunks = bundles[i]->getNumChunks();
-
-        CommandStreamChunk* chunk = reinterpret_cast<CommandStreamChunk*>(offset + sizeof(CommandStreamChunk) * i);
-        for (uint j = 0; j < numChunks; ++j)
-        {
-            chunk[j] = bundleChunks[j]; 
-        }
+        CommandList* bundleList = bundles[i];
+        CommandList** datList = reinterpret_cast<CommandList**>(offset + sizeof(CommandList*) * i);
+        *datList = bundleList;
     }
     
     m_chunks.back().sizeBytes += sizeBytes;
