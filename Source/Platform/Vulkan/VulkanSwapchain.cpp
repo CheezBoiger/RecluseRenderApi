@@ -14,10 +14,13 @@ VulkanSwapchain::VulkanSwapchain(VulkanDevice* device, VkSurfaceKHR surface, con
     , m_device(VK_NULL_HANDLE)
     , m_surface(surface)
     , m_currentImageIndex(0)
+    , m_physicalDevice(VK_NULL_HANDLE)
 {
     R_ASSERT(device);
     m_device = device->get();
-    initialize(device);   
+    m_physicalDevice = device->getAdapter()->get();
+
+    initialize();   
     initializeSwapchainResources();
 }
 
@@ -26,12 +29,13 @@ VulkanSwapchain::~VulkanSwapchain()
     // Do nothing
 }
 
-void VulkanSwapchain::initialize(VulkanDevice* device)
+void VulkanSwapchain::initialize()
 {
-    if (!device) return;
+    if (!m_device) return;
+    if (!m_physicalDevice) return;
     if (!m_surface) return;
 
-    VkPhysicalDevice physicalDevice                             = device->getAdapter()->get();
+    VkPhysicalDevice physicalDevice                             = m_physicalDevice;
     VkSurfaceCapabilitiesKHR surfaceCapabilities                = { };
     VkFormat requestedSurfaceFormat                             = getVulkanFormat(m_description.format);
     VkColorSpaceKHR requestedColorSpace                         = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR; //m_description.colorSpace;
@@ -175,7 +179,26 @@ void VulkanSwapchain::release()
 
 ResultCode VulkanSwapchain::rebuild(const Swapchain::Description& description)
 {
-    return RecluseResult_NoImpl;
+    VkSurfaceCapabilitiesKHR capabilities = { };
+    VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &capabilities);
+    R_ASSERT(result == VK_SUCCESS);
+    const uint32_t renderWidth = capabilities.currentExtent.width;
+    const uint32_t renderHeight = capabilities.currentExtent.height;
+
+    if (renderWidth == 0 || renderHeight == 0)
+        return RecluseResult_InvalidArgs;
+
+    if (renderWidth != description.renderWidth ||
+        renderHeight != description.renderHeight)
+    {
+        m_description = description;
+        vkDeviceWaitIdle(m_device);
+        release();
+        initialize();
+        initializeSwapchainResources();
+        m_currentImageIndex = 0;
+    }
+    return RecluseResult_Ok;
 }
 
 Resource* VulkanSwapchain::currentBackbuffer()
@@ -196,6 +219,7 @@ uint VulkanSwapchain::aquireNextFrameIndex(VkSemaphore waitSemaphore)
     {
         case VK_ERROR_OUT_OF_DATE_KHR:
             rebuild(m_description);
+            vkAcquireNextImageKHR(m_device, m_swapchain, UINT64_MAX, waitSemaphore, nullptr, &m_currentImageIndex);
             break;
         case VK_SUBOPTIMAL_KHR: 
         default:

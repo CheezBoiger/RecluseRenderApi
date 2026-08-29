@@ -25,7 +25,7 @@ public:
     Swapchain::Description      getDescription() override;
 
     // Initialize the swapchain.
-    void                        initialize(VulkanDevice* device);
+    void                        initialize();
     VulkanResource&             getNativeResource(ResourceId id);
 
     // Release the swapchain, this is essential for destroying the swaphain resources.
@@ -48,6 +48,7 @@ private:
     VkSwapchainKHR               m_swapchain;
     Swapchain::Description       m_description;
     VkDevice                     m_device;
+    VkPhysicalDevice             m_physicalDevice;
     std::vector<VkSemaphore>     m_signalSemaphores;
     std::vector<VulkanResource>  m_imageResources;
     uint                         m_currentImageIndex;

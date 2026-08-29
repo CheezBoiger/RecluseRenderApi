@@ -28,6 +28,7 @@ public:
         VkAccessFlags           accessMask;
         VkPipelineStageFlags    pipelineStage;
     };
+
     typedef std::unordered_map<VulkanResource::ResourceHandle, State> ResourceStateMap;
 
     static const uint kNumMaxSignalSemaphores   = 1;

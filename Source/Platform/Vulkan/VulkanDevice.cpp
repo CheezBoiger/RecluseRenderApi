@@ -212,10 +212,17 @@ ResultCode VulkanDevice::processFrame(FrameHandle frame)
             }
             case VulkanFrameProcess::SubmitType_Present:
             {
-                VkPresentInfoKHR* info = (VkPresentInfoKHR*)address;
-                VkQueue queue = queryQueue(CommandQueueType_Graphics);
+                VkPresentInfoKHR* info  = reinterpret_cast<VkPresentInfoKHR*>(address);
+                VkQueue queue           = queryQueue(CommandQueueType_Graphics);
 
-                vkQueuePresentKHR(queue, info);
+                VkResult result = vkQueuePresentKHR(queue, info);
+                switch (result)
+                {
+                    case VK_ERROR_OUT_OF_DATE_KHR:
+                        break;
+                    case VK_SUBOPTIMAL_KHR:
+                        break;
+                }
                 address += sizeof(VkPresentInfoKHR);
                 break;
             }
