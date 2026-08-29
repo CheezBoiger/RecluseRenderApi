@@ -424,6 +424,8 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
             }
             case CommandOpcode_End:
             {
+                // Flush barriers.
+                flushBarriers(tracker);
                 vkEndCommandBuffer(tracker.commandbuffer);
                 break;
             }
@@ -450,14 +452,22 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                         memoryBarrier.newLayout = getImageLayout(transition.resourceState);
                         memoryBarrier.image = image;
                         memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask = state.accessMask;
+                        memoryBarrier.srcAccessMask = state.accessMask == 0? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
                         memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.resourceState);
                         memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
                         memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                        
+                        memoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                        memoryBarrier.subresourceRange.baseArrayLayer = 0;
+                        memoryBarrier.subresourceRange.baseMipLevel = 0;
+                        memoryBarrier.subresourceRange.layerCount = 1;
+                        memoryBarrier.subresourceRange.levelCount = 1;
+
+                        // This will update the local resource state map.                        
                         state.resourceState = transition.resourceState;
                         state.accessMask = memoryBarrier.dstAccessMask;
                         state.pipelineStage;
+
+                        barriers[{ memoryBarrier.srcAccessMask, memoryBarrier.dstAccessMask }].imageBarriers.push_back(memoryBarrier);
                     }
                     else
                     {
@@ -474,6 +484,20 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
     }
 
     return VK_SUCCESS;
+}
+
+void VulkanFrameProcess::VulkanCommandListEncoder::flushBarriers(StateTracker& tracker)
+{
+    for (auto& it : barriers)
+    {
+        PipelineStage stage = it.first;
+        vkCmdPipelineBarrier(tracker.commandbuffer,
+            stage.srcStageFlags, stage.dstStageFlags, VK_DEPENDENCY_BY_REGION_BIT, 
+            0, nullptr, 0, nullptr, 
+            it.second.imageBarriers.size(), it.second.imageBarriers.data());
+        it.second.imageBarriers.clear();
+        it.second.bufferBarriers.clear();
+    }
 }
 } // Vulkan
 } // RenderApi

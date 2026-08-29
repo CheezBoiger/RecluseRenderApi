@@ -108,15 +108,51 @@ private:
     {
     public:
         VulkanCommandListEncoder(VkDevice device) 
-            : m_device(device)
-            , imageBarriers(256)
-            , bufferBarriers(256) { }
+            : m_device(device) { }
         VkResult encode(const CommandStreamChunk& chunk, StateTracker& tracker);
         VkResult operator()(const CommandStreamChunk& chunk, StateTracker& tracker) { return encode(chunk, tracker); }
     private:
+        void flushBarriers(StateTracker& tracker);
+
         VkDevice m_device;
-        std::vector<VkImageMemoryBarrier>   imageBarriers;
-        std::vector<VkBufferMemoryBarrier>  bufferBarriers;
+
+        struct PipelineStage
+        {
+            VkPipelineStageFlags srcStageFlags;
+            VkPipelineStageFlags dstStageFlags;
+            
+            bool operator==(const PipelineStage& stage) const 
+            {
+                return (srcStageFlags == stage.srcStageFlags) && (dstStageFlags == stage.dstStageFlags);
+            }
+        
+            bool operator!=(const PipelineStage& stage) const
+            {
+                return !(*this == stage);
+            }
+
+            bool operator()(const PipelineStage& stage) const 
+            {
+                return (*this == stage);
+            }
+        };
+
+        struct PipelineStageHasher
+        {
+            size_t operator()(const PipelineStage& key) const {
+                return ((std::hash<uint32_t>()(key.srcStageFlags) ^ (std::hash<uint32_t>()(key.srcStageFlags) << 1)) >> 1);
+            }
+        };
+
+        struct Barriers
+        {
+            std::vector<VkImageMemoryBarrier> imageBarriers;
+            std::vector<VkBufferMemoryBarrier> bufferBarriers;
+
+            Barriers() : imageBarriers(), bufferBarriers() { }
+        };
+
+        std::unordered_map<PipelineStage, Barriers, PipelineStageHasher>   barriers;
     };
 
     struct Frame

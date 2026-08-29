@@ -100,6 +100,8 @@ TEST(VulkanTest, CreateDevice)
 {
     LogSystem::initializeLoggingSystem();
     Window* window = Window::create("Test", 0, 0, 960, 620);
+    ASSERT_NE(window, nullptr);
+
     window->setToCenter();
     window->show();
     Context* context = nullptr;
