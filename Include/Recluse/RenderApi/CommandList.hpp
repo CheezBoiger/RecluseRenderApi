@@ -33,6 +33,15 @@ enum CommandType : u8
     Bundle 
 };
 
+enum CommandListStatus
+{
+    CommandListStatus_Reset,
+    CommandListStatus_Pending,
+    CommandListStatus_Recording = CommandListStatus_Pending,
+    CommandlistStatus_Closed,
+    CommandListStatus_Ready = CommandlistStatus_Closed,
+};
+
 // Chunk defines the base and size of a chunk of commands.
 struct CommandStreamChunk
 {
@@ -126,6 +135,8 @@ public:
     // Get the number of chunks that his command list holds.
     uint getNumChunks() const { return m_chunks.size(); }
 
+    CommandListStatus getStatus() const { return m_status; }
+
 private:
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
@@ -141,6 +152,9 @@ private:
     std::vector<CommandStreamChunk> m_chunks;
     // Render command list id.
     Id m_id;
+
+    // status of the command list.
+    CommandListStatus m_status;
 };
 } // RenderApi
 } // Recluse

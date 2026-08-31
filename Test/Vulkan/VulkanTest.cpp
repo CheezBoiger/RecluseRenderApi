@@ -124,7 +124,7 @@ TEST(VulkanTest, CreateDevice)
         uint index = -1;
         for (uint i = 0; i < count; ++i)
         {
-            if (info[i].type == Adapter::Type_Discrete || info[i].type == Adapter::Type_Integrated)
+            if (/*info[i].type == Adapter::Type_Discrete || */ info[i].type == Adapter::Type_Integrated)
             {
                 index = info[i].index;
                 break;

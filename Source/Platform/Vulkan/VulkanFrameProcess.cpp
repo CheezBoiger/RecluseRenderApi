@@ -144,8 +144,8 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     if (numLists == 0) return RecluseResult_Ok;
 
     Frame& frame = m_frames[currentFrameIndex()];
-    CommandPool& pool = frame.commandPools[type];
-    VulkanCommandListEncoder encoder(m_device);
+    uint familyIndex = queryFamilyIndex(type);
+    CommandPool& pool = frame.commandPools[familyIndex];
     ResultCode result = RecluseResult_Ok;
 
     struct Submittal {
@@ -170,14 +170,21 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
     for (uint i = 0; i < numLists ; ++i)
     {
-        const CommandStreamChunk* chunks = lists[i].getChunks();
-        const uint numChunks = lists[i].getNumChunks();
+        const CommandStreamChunk* chunks    = lists[i].getChunks();
+        const uint numChunks                = lists[i].getNumChunks();
 
         for (uint chunkIndex = 0; chunkIndex < numChunks; ++chunkIndex)
         {
             VkCommandBuffer cmdBuffer = pool.obtainCommandBuffer(m_device, chunks[chunkIndex].type, chunks[chunkIndex].instance); 
-            StateTracker tracker = { cmdBuffer, pool.obtainLocalStateMap(cmdBuffer, chunks[chunkIndex].type, chunks[chunkIndex].instance) };
-            encoder(chunks[chunkIndex], tracker);
+
+            auto func = [&] (VkCommandBuffer commandbuffer, CommandStreamChunk chunk) -> void { 
+                VulkanCommandListEncoder encoder(m_device);
+                StateTracker tracker = { commandbuffer, pool.obtainLocalStateMap(commandbuffer, chunk.type, chunk.instance) };
+                encoder(chunk, tracker);
+            };
+
+           //m_workerPool.submitTask(func, cmdBuffer, chunks[chunkIndex]);
+            func(cmdBuffer, chunks[chunkIndex]);
             dataPacket.write<VkCommandBuffer>(cmdBuffer);
         }
     }
@@ -202,6 +209,25 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     frame.frameStream.sizeBytes += submitBytes;
 
     return result;
+}
+
+uint VulkanFrameProcess::queryFamilyIndex(CommandQueueType type)
+{
+    uint familyIndex = 0;
+    switch (type)
+    {
+        case CommandQueueType_Copy:
+            familyIndex = m_queueIndices.copy.familyIndex;
+            break;
+        case CommandQueueType_Compute:
+            familyIndex = m_queueIndices.compute.familyIndex;
+            break;
+        case CommandQueueType_Graphics:
+        default:
+            familyIndex = m_queueIndices.graphics.familyIndex;
+            break;
+    };
+    return familyIndex;
 }
 
 void VulkanFrameProcess::release()
@@ -438,21 +464,23 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                 {
                     Transition& transition = transitions[i];
                     VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
+
+                    auto& it = tracker.localStateMap->find(nativeResource->raw());
+
+                    if (it == tracker.localStateMap->end())
+                        (*tracker.localStateMap)[nativeResource->raw()] = { nativeResource->getInitialResourceState(), 0 };
+
+                    State& state = tracker.localStateMap->operator[](nativeResource->raw());
+
                     if (nativeResource->isImage())
                     {
                         VkImage image = nativeResource->get<VkImage>();
                         VkImageMemoryBarrier memoryBarrier = { };
-                        auto& it = tracker.localStateMap->find(nativeResource->raw());
-
-                        if (it == tracker.localStateMap->end())
-                            (*tracker.localStateMap)[nativeResource->raw()] = { nativeResource->getInitialResourceState(), 0 };
-
-                        State& state = tracker.localStateMap->operator[](nativeResource->raw());
                         memoryBarrier.oldLayout = getImageLayout(tracker.localStateMap->operator[](nativeResource->raw()).resourceState);
                         memoryBarrier.newLayout = getImageLayout(transition.resourceState);
                         memoryBarrier.image = image;
                         memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask = state.accessMask == 0? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
+                        memoryBarrier.srcAccessMask = state.accessMask == 0 ? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
                         memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.resourceState);
                         memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
                         memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -467,11 +495,27 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                         state.accessMask = memoryBarrier.dstAccessMask;
                         state.pipelineStage;
 
-                        barriers[{ memoryBarrier.srcAccessMask, memoryBarrier.dstAccessMask }].imageBarriers.push_back(memoryBarrier);
+                        VkPipelineStageFlags srcPipelineStage = getDestinationPipelineStage(memoryBarrier.srcAccessMask);
+                        VkPipelineStageFlags dstPipelineStage = getDestinationPipelineStage(memoryBarrier.dstAccessMask);
+
+                        barriers[{ srcPipelineStage, dstPipelineStage }].imageBarriers.push_back(memoryBarrier);
                     }
                     else
                     {
                         VkBuffer buffer = nativeResource->get<VkBuffer>();
+                        VkBufferMemoryBarrier memoryBarrier = { };
+                        memoryBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                        memoryBarrier.srcAccessMask         = state.accessMask == 0 ? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
+                        memoryBarrier.dstAccessMask         = getDesiredResourceStateAccessMask(transition.resourceState);
+                        memoryBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+                        memoryBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+                        memoryBarrier.offset                = 0;
+                        memoryBarrier.size                  = VK_WHOLE_SIZE;
+                        memoryBarrier.buffer                = buffer;
+                        VkPipelineStageFlags srcPipelineStage = getDestinationPipelineStage(memoryBarrier.srcAccessMask);
+                        VkPipelineStageFlags dstPipelineStage = getDestinationPipelineStage(memoryBarrier.dstAccessMask);
+
+                        barriers[{ srcPipelineStage, dstPipelineStage }].bufferBarriers.push_back(memoryBarrier);
                     }
                 }
                 break;
@@ -493,7 +537,8 @@ void VulkanFrameProcess::VulkanCommandListEncoder::flushBarriers(StateTracker& t
         PipelineStage stage = it.first;
         vkCmdPipelineBarrier(tracker.commandbuffer,
             stage.srcStageFlags, stage.dstStageFlags, VK_DEPENDENCY_BY_REGION_BIT, 
-            0, nullptr, 0, nullptr, 
+            0, nullptr,
+             it.second.bufferBarriers.size(), it.second.bufferBarriers.data(), 
             it.second.imageBarriers.size(), it.second.imageBarriers.data());
         it.second.imageBarriers.clear();
         it.second.bufferBarriers.clear();

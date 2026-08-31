@@ -21,12 +21,16 @@ static CommandList::Id getId()
 
 CommandList::CommandList()
     : m_id(kBadId)
+    , m_status(CommandListStatus_Reset)
 {
     m_id = getId();
 }
 
 void CommandList::begin(const CommandList::BeginDescription& beginDescription)
 {
+    R_ASSERT(m_status != CommandListStatus_Recording);
+    if (m_status == CommandListStatus_Recording) return;
+
     CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate<CommandHeader>();
     command->opcode = CommandOpcode_Begin;
     command->size = 0;
@@ -39,14 +43,19 @@ void CommandList::begin(const CommandList::BeginDescription& beginDescription)
     chunk.type          = beginDescription.type;
     chunk.id            = m_id;
 
+    m_status = CommandListStatus_Recording;
+
     m_chunks.push_back(chunk);
 }
 
 void CommandList::end()
 {
+    R_ASSERT(m_status == CommandListStatus_Recording);
     CommandHeader* command = m_commandAllocator.allocate<CommandHeader>();
     command->opcode = CommandOpcode_End;
     command->size = 0;
+
+    m_status = CommandListStatus_Ready;
 
     m_chunks.back().sizeBytes += sizeof(CommandHeader);
 }
@@ -266,6 +275,7 @@ void CommandList::reset()
     m_commandAllocator.clear();
     m_resourceAllocator.clear();
     m_chunks.clear();
+    m_status = CommandListStatus_Reset;
 }
 
 

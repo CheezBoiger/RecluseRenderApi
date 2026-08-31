@@ -70,6 +70,7 @@ private:
     uint currentFrameIndex() const { return m_currentFrameIndex; }
 
     void initialize();
+    uint queryFamilyIndex(CommandQueueType type);
 
     struct CommandPool
     {
