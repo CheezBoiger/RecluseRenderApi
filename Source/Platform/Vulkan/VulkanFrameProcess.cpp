@@ -6,6 +6,8 @@
 
 #include <Recluse/Utility.hpp>
 #include <functional>
+#include <chrono>
+#include <thread>
 
 namespace Recluse {
 namespace RenderApi {
@@ -183,12 +185,12 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
                 encoder(chunk, tracker);
             };
 
-           //m_workerPool.submitTask(func, cmdBuffer, chunks[chunkIndex]);
-            func(cmdBuffer, chunks[chunkIndex]);
+            m_workerPool.submitTask(func, cmdBuffer, chunks[chunkIndex]);
+            //func(cmdBuffer, chunks[chunkIndex]);
             dataPacket.write<VkCommandBuffer>(cmdBuffer);
         }
     }
-
+    
     m_workerPool.waitIdle();
 
     for (uint i = 0; i < numLists; ++i)
@@ -526,7 +528,7 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
         
         address += CommandHeader::packetSizeBytes(header);
     }
-
+    //printf("Encoded command list 0x%08x with %llu bytes.\n", tracker.commandbuffer, (unsigned long long)chunk.sizeBytes);
     return VK_SUCCESS;
 }
 
