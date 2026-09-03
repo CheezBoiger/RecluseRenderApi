@@ -159,14 +159,14 @@ private:
 
     struct Frame
     {
-        LinearScratchMemory<R_KB(4)>    scratch;
-        LinearScratchMemory<R_KB(4)>    frameMemory;
-        FrameStream                     frameStream;
-        std::map<uint, CommandPool>     commandPools;
-        VkFence                         fence;
-        VkSemaphore                     frameSemaphore;
+        LinearScratchMemory<R_KB(4)>                                    scratch;
+        LinearScratchMemory<R_KB(4)>                                    frameMemory;
+        FrameStream                                                     frameStream;
+        std::map<VulkanDevice::QueueProperties::Index, CommandPool>     commandPools;
+        VkFence                                                         fence;
+        VkSemaphore                                                     frameSemaphore;
 
-        void                            reset(VkDevice device);
+        void                                                            reset(VkDevice device);
     };
 
     std::vector<Frame>                  m_frames;

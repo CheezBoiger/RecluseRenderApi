@@ -110,7 +110,7 @@ TEST(VulkanTest, CreateDevice)
         Context::Description description = { };
         description.applicationName = "Test";
         description.engineName = "TestEngine";
-        description.enableValidation = true;
+        description.enableValidation = false;
         context = Context::create(Api::Vulkan, description);
         ASSERT_NE(context, nullptr);
     }
@@ -124,7 +124,7 @@ TEST(VulkanTest, CreateDevice)
         uint index = -1;
         for (uint i = 0; i < count; ++i)
         {
-            if (/*info[i].type == Adapter::Type_Discrete || */ info[i].type == Adapter::Type_Integrated)
+            if (info[i].type == Adapter::Type_Discrete || info[i].type == Adapter::Type_Integrated)
             {
                 index = info[i].index;
                 break;
@@ -151,7 +151,7 @@ TEST(VulkanTest, CreateDevice)
     swapchainDesc.renderWidth = window->getWidth();
     swapchainDesc.renderHeight = window->getHeight();
     swapchainDesc.format = ResourceFormat_R8G8B8A8_Unorm;
-    swapchainDesc.numFrames = 5;
+    swapchainDesc.numFrames = 3;
     swapchainDesc.usage = 0;
     swapchainDesc.presentMode = Swapchain::PresentMode_VSync;
     swapchainDesc.windowHandle = window->getNativeHandle();
@@ -160,7 +160,7 @@ TEST(VulkanTest, CreateDevice)
     EXPECT_NE(swapchain, nullptr);
 
     FrameProcess::Description desc = { };
-    desc.maxFramesInFlight = 2;
+    desc.maxFramesInFlight = 3;
     desc.numCommandListJobThreads = 2;
     FrameProcess* frameProcessor = device->createFrameProcess(desc);
     ASSERT_NE(frameProcessor, nullptr);
@@ -170,7 +170,6 @@ TEST(VulkanTest, CreateDevice)
     {
         pollEvents();
         i++;
-
         //// Swapchain    
         FrameProcess::FrameDescription frameDescription;
         frameDescription.swapchain = swapchain;

@@ -138,6 +138,9 @@ FrameHandle VulkanFrameProcess::endFrame()
     // Reset the swapchain link.
     m_swapchainRef = nullptr;
 
+    // Wait for the thread pool to finish encoding all command lists.
+    m_workerPool.waitIdle();
+
     return handle;
 }
 
@@ -146,8 +149,6 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     if (numLists == 0) return RecluseResult_Ok;
 
     Frame& frame = m_frames[currentFrameIndex()];
-    uint familyIndex = queryFamilyIndex(type);
-    CommandPool& pool = frame.commandPools[familyIndex];
     ResultCode result = RecluseResult_Ok;
 
     struct Submittal {
@@ -177,25 +178,30 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
         for (uint chunkIndex = 0; chunkIndex < numChunks; ++chunkIndex)
         {
-            VkCommandBuffer cmdBuffer = pool.obtainCommandBuffer(m_device, chunks[chunkIndex].type, chunks[chunkIndex].instance); 
-
-            auto func = [&] (VkCommandBuffer commandbuffer, CommandStreamChunk chunk) -> void { 
+            VkCommandBuffer* out = dataPacket.write<VkCommandBuffer>(nullptr);
+            auto func = [&] (Frame& frame, uint familyIndex, VkCommandBuffer* commandbufferOut, CommandStreamChunk chunk) -> void {
+                CommandPool& commandPool = frame.commandPools[familyIndex];
+                VkCommandBuffer cmdBuffer = commandPool.obtainCommandBuffer(m_device, chunk.type, chunk.instance); 
                 VulkanCommandListEncoder encoder(m_device);
-                StateTracker tracker = { commandbuffer, pool.obtainLocalStateMap(commandbuffer, chunk.type, chunk.instance) };
+                StateTracker tracker = { cmdBuffer, commandPool.obtainLocalStateMap(cmdBuffer, chunk.type, chunk.instance) };
                 encoder(chunk, tracker);
+                *commandbufferOut = cmdBuffer;
             };
 
-            m_workerPool.submitTask(func, cmdBuffer, chunks[chunkIndex]);
+            m_workerPool.submitTask(func, std::ref(frame), queryFamilyIndex(type), out, chunks[chunkIndex]);
             //func(cmdBuffer, chunks[chunkIndex]);
-            dataPacket.write<VkCommandBuffer>(cmdBuffer);
         }
     }
-    
-    m_workerPool.waitIdle();
 
     for (uint i = 0; i < numLists; ++i)
     {
-        dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        const uint numChunks = lists[i].getNumChunks();
+        for (uint j = 0; j < numChunks; ++j)
+        {
+            const CommandStreamChunk* chunks = lists[i].getChunks();
+            if (chunks[j].type == CommandType::Primary)
+                dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        }
     }
 
     PacketBuilder packet(frame.frameMemory.allocateRaw(submitBytes));

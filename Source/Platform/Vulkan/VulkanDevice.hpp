@@ -25,9 +25,10 @@ class RecluseRenderApi_PUBLIC_API VulkanDevice : public Device
 public:
     struct QueueProperties
     {
-        const static uint kBadIndex = ~0;
-        uint familyIndex = kBadIndex;
-        uint queueIndex = kBadIndex;
+        typedef uint Index;
+        const static Index kBadIndex = ~0;
+        Index familyIndex = kBadIndex;
+        Index queueIndex = kBadIndex;
     };
 
     struct QueueIndices
