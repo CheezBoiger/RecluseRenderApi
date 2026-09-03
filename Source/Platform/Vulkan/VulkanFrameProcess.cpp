@@ -41,6 +41,16 @@ void VulkanFrameProcess::beginFrame(const FrameDescription& frameDescription)
     }
 }
 
+void VulkanFrameProcess::CommandPool::reset(VkDevice device)
+{
+    R_ASSERT(device != VK_NULL_HANDLE);
+    R_ASSERT(pool != VK_NULL_HANDLE);
+    VkResult result = vkResetCommandPool(device, pool, 0);
+    R_ASSERT(result == VK_SUCCESS);
+    primary.reset();
+    secondary.reset();
+}
+
 void VulkanFrameProcess::Frame::reset(VkDevice device)
 {
     frameStream.baseAddress = frameMemory.getBaseAddress();
@@ -48,13 +58,12 @@ void VulkanFrameProcess::Frame::reset(VkDevice device)
     frameMemory.clear();
     scratch.clear();
 
-    for (auto& it : commandPools)
+    for (auto& it : threadContexts)
     {
-        VkResult result = vkResetCommandPool(device, it.second.pool, 0);
-        R_ASSERT(result == VK_SUCCESS);
-
-        it.second.primary.reset();
-        it.second.secondary.reset();
+        for (auto& poolIt : it.second.commandPools)
+        {
+            poolIt.second.reset(device);
+        }
     }
 }
 
@@ -180,7 +189,8 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
         {
             VkCommandBuffer* out = dataPacket.write<VkCommandBuffer>(nullptr);
             auto func = [&] (Frame& frame, uint familyIndex, VkCommandBuffer* commandbufferOut, CommandStreamChunk chunk) -> void {
-                CommandPool& commandPool = frame.commandPools[familyIndex];
+                ThreadContext& threadContext = frame.threadContexts[getCurrentThreadId()];
+                CommandPool& commandPool = threadContext.commandPools[familyIndex];
                 VkCommandBuffer cmdBuffer = commandPool.obtainCommandBuffer(m_device, chunk.type, chunk.instance); 
                 VulkanCommandListEncoder encoder(m_device);
                 StateTracker tracker = { cmdBuffer, commandPool.obtainLocalStateMap(cmdBuffer, chunk.type, chunk.instance) };
@@ -256,60 +266,59 @@ void VulkanFrameProcess::release()
             vkDestroySemaphore(m_device, frame.frameSemaphore, nullptr);
         frame.frameSemaphore = nullptr;
 
-        for (auto& it : frame.commandPools)
+        for (auto& it : frame.threadContexts)
         {
-            if (!it.second.primary.commandbuffers.empty())
+            for (auto& poolIt : it.second.commandPools)
             {
-                vkFreeCommandBuffers(m_device, it.second.pool,
-                    it.second.primary.commandbuffers.size(), it.second.primary.commandbuffers.data());
+                poolIt.second.release(m_device);
+                poolIt.second.pool = nullptr;
             }
-            if (!it.second.secondary.commandbuffers.empty())
-            {
-                vkFreeCommandBuffers(m_device, it.second.pool,
-                    it.second.secondary.commandbuffers.size(), it.second.secondary.commandbuffers.data());
-            }
-
-            if (it.second.pool)
-                vkDestroyCommandPool(m_device, it.second.pool, nullptr);
-
-            it.second.pool = nullptr;
         }
     }
+}
+
+void VulkanFrameProcess::CommandPool::initialize(VkDevice device, uint familyIndex)
+{
+    VkCommandPoolCreateInfo commandPoolCi = { };
+    commandPoolCi.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    commandPoolCi.queueFamilyIndex = familyIndex;
+    commandPoolCi.flags = 0;
+    VkResult result = vkCreateCommandPool(device, &commandPoolCi, nullptr, &pool);
+    R_ASSERT(result == VK_SUCCESS);
+}
+
+void VulkanFrameProcess::CommandPool::release(VkDevice device)
+{
+    if (!device) return;
+    if (!primary.commandbuffers.empty())
+    {
+        vkFreeCommandBuffers(device, pool,
+            primary.commandbuffers.size(), primary.commandbuffers.data());
+    }
+
+    if (!secondary.commandbuffers.empty())
+    {
+        vkFreeCommandBuffers(device, pool,
+            secondary.commandbuffers.size(), secondary.commandbuffers.data());
+    }
+
+    if (pool)
+        vkDestroyCommandPool(device, pool, nullptr);
+
+    pool = nullptr;
 }
 
 void VulkanFrameProcess::initialize()
 {
     if (!m_device) return;
+    
+    m_workerPool.start();
 
     m_frames.resize(m_maxFramesInFlight);
-
-    auto poolCreateFn = [&] (Frame& frame, uint familyIndex) -> void {
-        if (familyIndex == VulkanDevice::QueueProperties::kBadIndex)
-            return;
-
-        auto it = frame.commandPools.find(familyIndex);
-
-        if (it == frame.commandPools.end())
-        {
-            CommandPool pool = { };
-
-            VkCommandPoolCreateInfo commandPoolCi = { };
-            commandPoolCi.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-            commandPoolCi.queueFamilyIndex = familyIndex;
-            commandPoolCi.flags = 0;
-            VkResult result = vkCreateCommandPool(m_device, &commandPoolCi, nullptr, &pool.pool);
-            R_ASSERT(result == VK_SUCCESS);
-
-            frame.commandPools[familyIndex] = pool;
-        }
-    };
     
     for (uint i = 0; i < m_frames.size(); ++i)
     {
         Frame& frame = m_frames[i];
-        poolCreateFn(frame, m_queueIndices.graphics.familyIndex);
-        poolCreateFn(frame, m_queueIndices.compute.familyIndex);
-        poolCreateFn(frame, m_queueIndices.copy.familyIndex);
 
         VkFenceCreateInfo fenceCi   = { };
         fenceCi.sType               = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -319,16 +328,20 @@ void VulkanFrameProcess::initialize()
         VkSemaphoreCreateInfo semaphoreCi   = { };
         semaphoreCi.sType                   = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
         vkCreateSemaphore(m_device, &semaphoreCi, nullptr, &frame.frameSemaphore);
+
+        for (uint i = 0; i < m_workerPool.getWorkerCount(); ++i)
+        {
+            ThreadContext& threadContext = frame.threadContexts[m_workerPool.getWorkerId(i)];
+            threadContext.initialize(m_device, m_queueIndices);
+        }
     }
-    
-    m_workerPool.start();
 }
 
 ResultCode VulkanFrameProcess::waitIdle()
 {
+    m_workerPool.waitIdle();
     VkResult result = vkDeviceWaitIdle(m_device);
     R_ASSERT(result == VK_SUCCESS);
-    m_workerPool.waitIdle();
     return result == VK_SUCCESS ? RecluseResult_Ok : RecluseResult_Failed;
 }
 
@@ -551,6 +564,34 @@ void VulkanFrameProcess::VulkanCommandListEncoder::flushBarriers(StateTracker& t
         it.second.imageBarriers.clear();
         it.second.bufferBarriers.clear();
     }
+}
+
+void VulkanFrameProcess::ThreadContext::initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices)
+{
+    auto createPoolFn = [&](uint familyIndex) -> void {
+        if (familyIndex == VulkanDevice::QueueProperties::kBadIndex)
+            return;
+        auto it = commandPools.find(familyIndex);
+        if (it == commandPools.end())
+        {
+            CommandPool pool = { };
+            pool.initialize(device, familyIndex);
+            commandPools[familyIndex] = pool;
+        }
+    };
+
+    createPoolFn(queueIndices.graphics.familyIndex);
+    createPoolFn(queueIndices.compute.familyIndex);
+    createPoolFn(queueIndices.copy.familyIndex);
+}
+
+void VulkanFrameProcess::ThreadContext::release(VkDevice device)
+{
+    for (auto& it : commandPools)
+    {
+        it.second.release(device);
+    }
+    commandPools.clear();
 }
 } // Vulkan
 } // RenderApi

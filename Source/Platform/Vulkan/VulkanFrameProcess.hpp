@@ -91,6 +91,11 @@ private:
         CommandBufferHandler            primary;
         CommandBufferHandler            secondary;
 
+
+        void initialize(VkDevice device, uint familyIndex);
+        void release(VkDevice device);
+        void reset(VkDevice device);
+
         VkCommandBuffer                 obtainCommandBuffer(VkDevice device, 
                                             CommandType type, CommandInstance instance);
         VkCommandBuffer*                obtainCommandBuffers(VkDevice device, 
@@ -157,12 +162,19 @@ private:
         std::unordered_map<PipelineStage, Barriers, PipelineStageHasher>   barriers;
     };
 
+    struct ThreadContext
+    {
+        std::map<VulkanDevice::QueueProperties::Index, CommandPool> commandPools;
+        void initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices);
+        void release(VkDevice device);
+    };
+
     struct Frame
     {
         LinearScratchMemory<R_KB(4)>                                    scratch;
         LinearScratchMemory<R_KB(4)>                                    frameMemory;
         FrameStream                                                     frameStream;
-        std::map<VulkanDevice::QueueProperties::Index, CommandPool>     commandPools;
+        std::map<U64, ThreadContext>                                    threadContexts;
         VkFence                                                         fence;
         VkSemaphore                                                     frameSemaphore;
 

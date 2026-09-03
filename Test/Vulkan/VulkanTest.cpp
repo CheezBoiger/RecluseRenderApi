@@ -175,17 +175,19 @@ TEST(VulkanTest, CreateDevice)
         frameDescription.swapchain = swapchain;
 
         frameProcessor->beginFrame(frameDescription);
-        CommandList commandlist;
+        CommandList commandlists[2];
 
-        commandlist.begin({ Primary, Dynamic });
-        commandlist.transition(swapchain->currentBackbuffer(), ResourceState_Present);
-        commandlist.end();
+        commandlists[0].begin({ Primary, Dynamic });
+        commandlists[0].transition(swapchain->currentBackbuffer(), ResourceState_Present);
+        commandlists[0].end();
 
-        frameProcessor->submitCommandLists(CommandQueueType_Graphics, &commandlist, 1);
+        commandlists[1].begin({ Primary, Dynamic });
+        commandlists[1].end();
 
+        frameProcessor->submitCommandLists(CommandQueueType_Graphics, commandlists, 2);
         device->processFrame(frameProcessor->endFrame());
 
-        if (i == 1000)
+        if (i == 5000)
             window->close();
     }
 
