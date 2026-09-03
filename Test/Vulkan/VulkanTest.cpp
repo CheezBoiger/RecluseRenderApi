@@ -110,7 +110,7 @@ TEST(VulkanTest, CreateDevice)
         Context::Description description = { };
         description.applicationName = "Test";
         description.engineName = "TestEngine";
-        description.enableValidation = false;
+        description.enableValidation = true;
         context = Context::create(Api::Vulkan, description);
         ASSERT_NE(context, nullptr);
     }
