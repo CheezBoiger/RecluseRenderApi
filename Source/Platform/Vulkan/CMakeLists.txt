@@ -25,7 +25,8 @@ set(RECLUSE_VULKAN_FILES
 	${RECLUSE_VULKAN_PATH}/VulkanResource.hpp
 	${RECLUSE_VULKAN_PATH}/VulkanResource.cpp
 	${RECLUSE_VULKAN_PATH}/VulkanInstance.hpp
-	${RECLUSE_VULKAN_PATH}/VulkanInstance.cpp)
+	${RECLUSE_VULKAN_PATH}/VulkanInstance.cpp
+	${RECLUSE_VULKAN_PATH}/VulkanEncoder.cpp)
 	
 set(RECLUSE_VULKAN_INCLUDE_PATHS)
 set(RECLUSE_VULKAN_LIB_PATHS)

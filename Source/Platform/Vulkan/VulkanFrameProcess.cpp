@@ -55,8 +55,10 @@ void VulkanFrameProcess::Frame::reset(VkDevice device)
 {
     frameStream.baseAddress = frameMemory.getBaseAddress();
     frameStream.sizeBytes   = 0;
+
     frameMemory.clear();
     scratch.clear();
+    secondaryCommandBufferMap.clear();
 
     for (auto& it : threadContexts)
     {
@@ -160,6 +162,12 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     Frame& frame = m_frames[currentFrameIndex()];
     ResultCode result = RecluseResult_Ok;
 
+    uint totalSecondaryCommandBufferCount = 0;
+    for (uint i = 0; i < numLists; ++i)
+    {
+        totalSecondaryCommandBufferCount += lists[i].getNumChunks();
+    }
+
     struct Submittal {
         SubmitType          type;
         CommandQueueType    queueType;
@@ -180,38 +188,51 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     PacketBuilder dataPacket(frame.scratch.allocateRaw(scratchSizeBytes));
     UPtr startDataAddress = dataPacket.raw();
 
+    auto func = [&] (Frame& frame, uint familyIndex, VkCommandBuffer* commandbufferOut, CommandStreamChunk chunk) -> void {
+        ThreadContext& threadContext = frame.threadContexts[getCurrentThreadId()];
+        CommandPool& commandPool = threadContext.commandPools[familyIndex];
+        VkCommandBuffer cmdBuffer = commandPool.obtainCommandBuffer(m_device, chunk.type, chunk.instance);  
+
+        VulkanCommandListEncoder encoder(m_device);
+        StateTracker tracker = { frame, cmdBuffer, commandPool.obtainLocalStateMap(cmdBuffer, chunk.type, chunk.instance), commandPool };
+        encoder(chunk, tracker);
+
+        if (commandbufferOut)
+            *commandbufferOut = cmdBuffer;
+
+        if (chunk.type == CommandType::Bundle)
+        {                
+            // If it is a bundle, we need to store the command buffer in the frame's secondary command buffer map.
+            ScopedLock _lock(frame.secondaryCommandBufferMutex);
+            auto it = frame.secondaryCommandBufferMap.find(chunk.id);
+            if (it == frame.secondaryCommandBufferMap.end())
+            {
+                frame.secondaryCommandBufferMap[chunk.id] = cmdBuffer;
+            }
+        }  
+    };
+
     for (uint i = 0; i < numLists ; ++i)
     {
         const CommandStreamChunk* chunks    = lists[i].getChunks();
         const uint numChunks                = lists[i].getNumChunks();
 
+        // Submit each bundle chunk to the thread pool for encoding. This should be submitted first, as the primary command list
+        // will be recording after all bundles are encoded.
         for (uint chunkIndex = 0; chunkIndex < numChunks; ++chunkIndex)
         {
-            VkCommandBuffer* out = dataPacket.write<VkCommandBuffer>(nullptr);
-            auto func = [&] (Frame& frame, uint familyIndex, VkCommandBuffer* commandbufferOut, CommandStreamChunk chunk) -> void {
-                ThreadContext& threadContext = frame.threadContexts[getCurrentThreadId()];
-                CommandPool& commandPool = threadContext.commandPools[familyIndex];
-                VkCommandBuffer cmdBuffer = commandPool.obtainCommandBuffer(m_device, chunk.type, chunk.instance); 
-                VulkanCommandListEncoder encoder(m_device);
-                StateTracker tracker = { cmdBuffer, commandPool.obtainLocalStateMap(cmdBuffer, chunk.type, chunk.instance) };
-                encoder(chunk, tracker);
-                *commandbufferOut = cmdBuffer;
-            };
-
-            m_workerPool.submitTask(func, std::ref(frame), queryFamilyIndex(type), out, chunks[chunkIndex]);
-            //func(cmdBuffer, chunks[chunkIndex]);
+            m_workerPool.submitTask(func, std::ref(frame), queryFamilyIndex(type), nullptr, chunks[chunkIndex]);
         }
+
+        VkCommandBuffer* out = dataPacket.write<VkCommandBuffer>(nullptr);
+        m_workerPool.submitTask(func, std::ref(frame), queryFamilyIndex(type), out, lists[i].getPrimaryChunk());
     }
 
     for (uint i = 0; i < numLists; ++i)
     {
-        const uint numChunks = lists[i].getNumChunks();
-        for (uint j = 0; j < numChunks; ++j)
-        {
-            const CommandStreamChunk* chunks = lists[i].getChunks();
-            if (chunks[j].type == CommandType::Primary)
-                dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
-        }
+        const CommandStreamChunk& chunk = lists[i].getPrimaryChunk();
+        if (chunk.type == CommandType::Primary)
+            dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
 
     PacketBuilder packet(frame.frameMemory.allocateRaw(submitBytes));
@@ -268,11 +289,7 @@ void VulkanFrameProcess::release()
 
         for (auto& it : frame.threadContexts)
         {
-            for (auto& poolIt : it.second.commandPools)
-            {
-                poolIt.second.release(m_device);
-                poolIt.second.pool = nullptr;
-            }
+            it.second.release(m_device);
         }
     }
 }
@@ -449,121 +466,6 @@ void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()
     currentCbIndex = 0;
     for (auto& it : localResourceStateMap)
         it.second.clear();
-}
-
-VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, StateTracker& tracker)
-{
-    UPtr address = chunk.baseAddress;
-    const UPtr endAddress = chunk.baseAddress + chunk.sizeBytes;
-
-    while (address < endAddress)
-    {
-        CommandHeader* header = reinterpret_cast<CommandHeader*>(address);
-        switch (header->opcode)
-        {
-            case CommandOpcode_Begin:
-            {
-                VkCommandBufferBeginInfo beginInfo = { };
-                beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-                beginInfo.flags = chunk.type == Dynamic ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
-                vkBeginCommandBuffer(tracker.commandbuffer, &beginInfo);
-                break;
-            }
-            case CommandOpcode_End:
-            {
-                // Flush barriers.
-                flushBarriers(tracker);
-                vkEndCommandBuffer(tracker.commandbuffer);
-                break;
-            }
-            case CommandOpcode_BarrierTransition:
-            {
-                BarrierTransitionHeader* transitionHeader = (BarrierTransitionHeader*)(address + sizeof(CommandHeader));
-                const uint numTransitions = transitionHeader->numTransitions;
-                Transition* transitions = reinterpret_cast<Transition*>(reinterpret_cast<UPtr>(transitionHeader) + sizeof(BarrierTransitionHeader));
-                for (uint i = 0; i < numTransitions; ++ i)
-                {
-                    Transition& transition = transitions[i];
-                    VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
-
-                    auto& it = tracker.localStateMap->find(nativeResource->raw());
-
-                    if (it == tracker.localStateMap->end())
-                        (*tracker.localStateMap)[nativeResource->raw()] = { nativeResource->getInitialResourceState(), 0 };
-
-                    State& state = tracker.localStateMap->operator[](nativeResource->raw());
-
-                    if (nativeResource->isImage())
-                    {
-                        VkImage image = nativeResource->get<VkImage>();
-                        VkImageMemoryBarrier memoryBarrier = { };
-                        memoryBarrier.oldLayout = getImageLayout(tracker.localStateMap->operator[](nativeResource->raw()).resourceState);
-                        memoryBarrier.newLayout = getImageLayout(transition.resourceState);
-                        memoryBarrier.image = image;
-                        memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask = state.accessMask == 0 ? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
-                        memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.resourceState);
-                        memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
-                        memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                        memoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-                        memoryBarrier.subresourceRange.baseArrayLayer = 0;
-                        memoryBarrier.subresourceRange.baseMipLevel = 0;
-                        memoryBarrier.subresourceRange.layerCount = 1;
-                        memoryBarrier.subresourceRange.levelCount = 1;
-
-                        // This will update the local resource state map.                        
-                        state.resourceState = transition.resourceState;
-                        state.accessMask = memoryBarrier.dstAccessMask;
-                        state.pipelineStage;
-
-                        VkPipelineStageFlags srcPipelineStage = getDestinationPipelineStage(memoryBarrier.srcAccessMask);
-                        VkPipelineStageFlags dstPipelineStage = getDestinationPipelineStage(memoryBarrier.dstAccessMask);
-
-                        barriers[{ srcPipelineStage, dstPipelineStage }].imageBarriers.push_back(memoryBarrier);
-                    }
-                    else
-                    {
-                        VkBuffer buffer = nativeResource->get<VkBuffer>();
-                        VkBufferMemoryBarrier memoryBarrier = { };
-                        memoryBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask         = state.accessMask == 0 ? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
-                        memoryBarrier.dstAccessMask         = getDesiredResourceStateAccessMask(transition.resourceState);
-                        memoryBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
-                        memoryBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
-                        memoryBarrier.offset                = 0;
-                        memoryBarrier.size                  = VK_WHOLE_SIZE;
-                        memoryBarrier.buffer                = buffer;
-                        VkPipelineStageFlags srcPipelineStage = getDestinationPipelineStage(memoryBarrier.srcAccessMask);
-                        VkPipelineStageFlags dstPipelineStage = getDestinationPipelineStage(memoryBarrier.dstAccessMask);
-
-                        barriers[{ srcPipelineStage, dstPipelineStage }].bufferBarriers.push_back(memoryBarrier);
-                    }
-                }
-                break;
-            }
-            default:
-                break;
-        }
-        
-        address += CommandHeader::packetSizeBytes(header);
-    }
-    //printf("Encoded command list 0x%08x with %llu bytes.\n", tracker.commandbuffer, (unsigned long long)chunk.sizeBytes);
-    return VK_SUCCESS;
-}
-
-void VulkanFrameProcess::VulkanCommandListEncoder::flushBarriers(StateTracker& tracker)
-{
-    for (auto& it : barriers)
-    {
-        PipelineStage stage = it.first;
-        vkCmdPipelineBarrier(tracker.commandbuffer,
-            stage.srcStageFlags, stage.dstStageFlags, VK_DEPENDENCY_BY_REGION_BIT, 
-            0, nullptr,
-             it.second.bufferBarriers.size(), it.second.bufferBarriers.data(), 
-            it.second.imageBarriers.size(), it.second.imageBarriers.data());
-        it.second.imageBarriers.clear();
-        it.second.bufferBarriers.clear();
-    }
 }
 
 void VulkanFrameProcess::ThreadContext::initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices)

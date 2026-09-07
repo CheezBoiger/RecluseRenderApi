@@ -5,6 +5,7 @@
 #include <Recluse/System/Window.hpp>
 #include <Recluse/System/Input.hpp>
 #include <Recluse/Logger.hpp>
+#include <Recluse/Time.hpp>
 
 #include <gtest/gtest.h>
 
@@ -99,6 +100,8 @@ TEST(VulkanTest, CreateAdapter)
 TEST(VulkanTest, CreateDevice)
 {
     LogSystem::initializeLoggingSystem();
+    RealtimeTick::initializeWatch(1, 0);
+
     Window* window = Window::create("Test", 0, 0, 960, 620);
     ASSERT_NE(window, nullptr);
 
@@ -160,14 +163,21 @@ TEST(VulkanTest, CreateDevice)
     EXPECT_NE(swapchain, nullptr);
 
     FrameProcess::Description desc = { };
-    desc.maxFramesInFlight = 3;
+    desc.maxFramesInFlight = 2;
     desc.numCommandListJobThreads = 2;
     FrameProcess* frameProcessor = device->createFrameProcess(desc);
     ASSERT_NE(frameProcessor, nullptr);
 
     int i = 0;
+    CommandList bundle;
+    CommandList commandlists[2];
+    
     while (!window->shouldClose())
     {
+        RealtimeTick::updateWatch(1, 0);
+        RealtimeTick tick = RealtimeTick::getTick(0);
+
+        R_WARN("Frame", "Delta: %f fps", 1.0f / tick.delta());
         pollEvents();
         i++;
         //// Swapchain    
@@ -175,13 +185,21 @@ TEST(VulkanTest, CreateDevice)
         frameDescription.swapchain = swapchain;
 
         frameProcessor->beginFrame(frameDescription);
-        CommandList commandlists[2];
+
+        commandlists[0].reset();
+        commandlists[1].reset();
 
         commandlists[0].begin({ Primary, Dynamic });
         commandlists[0].transition(swapchain->currentBackbuffer(), ResourceState_Present);
+
         commandlists[0].end();
 
         commandlists[1].begin({ Primary, Dynamic });
+        bundle.reset();
+        bundle.begin({ Bundle, Dynamic });
+        bundle.end();
+        CommandList* bundles[] = { &bundle };
+        commandlists[1].executeBundles(bundles, 1);
         commandlists[1].end();
 
         frameProcessor->submitCommandLists(CommandQueueType_Graphics, commandlists, 2);

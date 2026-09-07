@@ -20,8 +20,7 @@ TEST(CommandListTest, SimpleCommand)
     list.begin();
     list.end();
 
-    const CommandStreamChunk* chunks = list.getChunks();
-    const CommandStreamChunk& chunk = chunks[0]; 
+    const CommandStreamChunk& chunk = list.getPrimaryChunk();
 
     uint offsetBytes = 0;
     UPtr cursor = chunk.baseAddress;

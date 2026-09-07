@@ -47,9 +47,9 @@ struct CommandStreamChunk
 {
     UPtr                baseAddress    = 0;
     U32                 sizeBytes      = 0;
-    u16                 id;
-    CommandType         type;
-    CommandInstance     instance;
+    u16                 id;                 // Id of the command list that this chunk belongs to.
+    CommandType         type;               // Type of command list that this chunk belongs to.
+    CommandInstance     instance;           // Instance of command list that this chunk belongs to.
 };
 
 struct ResourceTransition
@@ -128,6 +128,9 @@ public:
 
     Id getId() const { return m_id; }
 
+    // Get the command list chunk
+    const CommandStreamChunk& getPrimaryChunk() const { return m_primaryChunk; }
+
     // Gets the stream chunk to process. This is the raw bytes of the stream consisting of 
     // all commands that have been recorded.
     const CommandStreamChunk* getChunks() const;
@@ -148,7 +151,9 @@ private:
     // will be invalidated if it resizes.)
     LinearScratchMemory<R_KB(256)> m_resourceAllocator;
 
-    // Chunk defines the overall size of the command list.
+    CommandStreamChunk m_primaryChunk;  // Primary chunk of the command list. This is the main chunk that holds all commands.
+
+    // Chunk defines the overall size of the command list. These are bundles stored.
     std::vector<CommandStreamChunk> m_chunks;
     // Render command list id.
     Id m_id;

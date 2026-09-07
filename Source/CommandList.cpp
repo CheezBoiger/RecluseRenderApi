@@ -29,6 +29,8 @@ CommandList::CommandList()
 void CommandList::begin(const CommandList::BeginDescription& beginDescription)
 {
     R_ASSERT(m_status != CommandListStatus_Recording);
+    R_ASSERT_FORMAT(m_primaryChunk.sizeBytes == 0, "Primary chunk is not empty, must be reset before recording!");
+    if (m_primaryChunk.sizeBytes != 0) return;
     if (m_status == CommandListStatus_Recording) return;
 
     CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate<CommandHeader>();
@@ -45,7 +47,7 @@ void CommandList::begin(const CommandList::BeginDescription& beginDescription)
 
     m_status = CommandListStatus_Recording;
 
-    m_chunks.push_back(chunk);
+    m_primaryChunk = chunk;
 }
 
 void CommandList::end()
@@ -57,7 +59,7 @@ void CommandList::end()
 
     m_status = CommandListStatus_Ready;
 
-    m_chunks.back().sizeBytes += sizeof(CommandHeader);
+    m_primaryChunk.sizeBytes += sizeof(CommandHeader);
 }
 
 void CommandList::dispatch(U32 x, U32 y, U32 z)
@@ -71,7 +73,7 @@ void CommandList::dispatch(U32 x, U32 y, U32 z)
     command->y = y;
     command->z = z;
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<DispatchCommand>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<DispatchCommand>();
 }
 
 void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
@@ -84,7 +86,7 @@ void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
     command->resourceTablePtr = reinterpret_cast<UPtr>(resourceTablePtr);
     command->sizeBytes = sizeBytes;
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<BindResourceTableCommand>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<BindResourceTableCommand>();
 }
 
 void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
@@ -97,7 +99,7 @@ void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
     command->samplerTablePtr = reinterpret_cast<UPtr>(samplerTablePtr);
     command->sizeBytes = sizeBytes;
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<BindSamplerTableCommand>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<BindSamplerTableCommand>();
 }
 
 void CommandList::bindPipeline(Pipeline* pipeline)
@@ -109,7 +111,7 @@ void CommandList::bindPipeline(Pipeline* pipeline)
     BindPipelineCommand* command = CommandHeader::dataOffset<BindPipelineCommand>(header);
     command->pipeline = pipeline->getId();
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<BindPipelineCommand>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<BindPipelineCommand>();
 }
 
 void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRenderTargets, ResourceViewId depthStencil)
@@ -142,7 +144,7 @@ void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRende
         *viewId = depthStencil;
     }
 
-    m_chunks.back().sizeBytes += sizeBytes;
+    m_primaryChunk.sizeBytes += sizeBytes;
 }
 
 void CommandList::drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance)
@@ -158,7 +160,7 @@ void CommandList::drawIndexedInstanced(uint indexCount, uint instanceCount, uint
     command->startIndex = firstIndex;
     command->startInstance = firstInstance;
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<DrawIndexedInstancedCommand>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<DrawIndexedInstancedCommand>();
 }
 
 void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance)
@@ -173,7 +175,7 @@ void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseV
     command->instanceCount = instanceCount;
     command->vertexCount = vertexCount;
     
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<DrawInstancedCommand>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<DrawInstancedCommand>();
 }
 
 void CommandList::transitionResources(ResourceTransition* transitions, uint numTransitions)
@@ -199,7 +201,7 @@ void CommandList::transitionResources(ResourceTransition* transitions, uint numT
         transition->resourceState = transitions[i].newState;
     }
     
-    m_chunks.back().sizeBytes += sizeBytes; 
+    m_primaryChunk.sizeBytes += sizeBytes; 
 }
 
 void CommandList::transition(Resource* resource, ResourceState resourceState)
@@ -232,9 +234,10 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
         CommandList* bundleList = bundles[i];
         CommandList** datList = reinterpret_cast<CommandList**>(offset + sizeof(CommandList*) * i);
         *datList = bundleList;
+        m_chunks.push_back(bundleList->getPrimaryChunk());
     }
     
-    m_chunks.back().sizeBytes += sizeBytes;
+    m_primaryChunk.sizeBytes += sizeBytes;
 }
 
 void CommandList::clearRenderTarget(uint renderTargetIndex, const F32 clearColor[4], const Rect& rect)
@@ -252,7 +255,7 @@ void CommandList::clearRenderTarget(uint renderTargetIndex, const F32 clearColor
     clearRenderTargetHeader->rect = rect;
     clearRenderTargetHeader->renderTargetIndex = renderTargetIndex;
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<ClearRenderTargetHeader>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<ClearRenderTargetHeader>();
 }
 
 void CommandList::clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 clearStencil, const Rect& rect)
@@ -267,7 +270,7 @@ void CommandList::clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 cl
     clearDepthStencilHeader->clearDepth = clearDepth;
     clearDepthStencilHeader->clearStencil = clearStencil;
 
-    m_chunks.back().sizeBytes += CommandHeader::dataSize<ClearDepthStencilHeader>();
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<ClearDepthStencilHeader>();
 }
 
 void CommandList::reset()
@@ -276,6 +279,9 @@ void CommandList::reset()
     m_resourceAllocator.clear();
     m_chunks.clear();
     m_status = CommandListStatus_Reset;
+
+    m_primaryChunk.baseAddress = 0;
+    m_primaryChunk.sizeBytes = 0;
 }
 
 

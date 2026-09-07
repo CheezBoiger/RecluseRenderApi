@@ -105,10 +105,32 @@ private:
     private:
     };
 
+    struct ThreadContext
+    {
+        std::map<VulkanDevice::QueueProperties::Index, CommandPool> commandPools;
+        void initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices);
+        void release(VkDevice device);
+    };
+
+    struct Frame
+    {
+        LinearScratchMemory<R_KB(4)>                                    scratch;
+        LinearScratchMemory<R_KB(4)>                                    frameMemory;
+        FrameStream                                                     frameStream;
+        std::map<U64, ThreadContext>                                    threadContexts;
+        VkFence                                                         fence;
+        VkSemaphore                                                     frameSemaphore;
+        MutexGuard                                                      secondaryCommandBufferMutex;
+        std::map<CommandList::Id, VkCommandBuffer>                      secondaryCommandBufferMap;
+        void                                                            reset(VkDevice device);
+    };
+
     struct StateTracker
     {
+        Frame& frame;
         VkCommandBuffer commandbuffer;
         ResourceStateMap* localStateMap;
+        CommandPool& commandPool;
     };
 
     class VulkanCommandListEncoder
@@ -160,25 +182,6 @@ private:
         };
 
         std::unordered_map<PipelineStage, Barriers, PipelineStageHasher>   barriers;
-    };
-
-    struct ThreadContext
-    {
-        std::map<VulkanDevice::QueueProperties::Index, CommandPool> commandPools;
-        void initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices);
-        void release(VkDevice device);
-    };
-
-    struct Frame
-    {
-        LinearScratchMemory<R_KB(4)>                                    scratch;
-        LinearScratchMemory<R_KB(4)>                                    frameMemory;
-        FrameStream                                                     frameStream;
-        std::map<U64, ThreadContext>                                    threadContexts;
-        VkFence                                                         fence;
-        VkSemaphore                                                     frameSemaphore;
-
-        void                                                            reset(VkDevice device);
     };
 
     std::vector<Frame>                  m_frames;
