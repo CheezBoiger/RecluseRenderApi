@@ -19,6 +19,7 @@ class Resource;
 enum CommandInstance : u8 
 { 
     // Command instance is dynamic, and is intended to be submitted once only per frame.
+    // Should be reset after every use or frame.
     Dynamic, 
     // Command instance is static, and is intended to be recorded once and used for multiple 
     // submittals.
@@ -61,7 +62,7 @@ struct ResourceTransition
 // CommandList is actually a recorder, which handles command list generation from the application.
 // This list is then processed by specific platforms without needing to do too many 
 // vtable lookups per drawcall.
-// The command list is not thread safe, and should be reset after it is submitted to the device for execution.
+// The command list is not thread safe, and should be reset when it is dynamic.
 class RecluseRenderApi_PUBLIC_API CommandList
 {
 public:
