@@ -194,7 +194,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
         VkCommandBuffer cmdBuffer = commandPool.obtainCommandBuffer(m_device, chunk.type, chunk.instance);  
 
         VulkanCommandListEncoder encoder(m_device);
-        StateTracker tracker = { frame, cmdBuffer, commandPool.obtainLocalStateMap(cmdBuffer, chunk.type, chunk.instance), commandPool };
+        StateTracker tracker = { frame, cmdBuffer, commandPool };
         encoder(chunk, tracker);
 
         if (commandbufferOut)
@@ -392,31 +392,6 @@ VkCommandBuffer* VulkanFrameProcess::CommandPool::obtainCommandBuffers(VkDevice 
     return result;
 }
 
-VulkanFrameProcess::ResourceStateMap* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainLocalResourceStateMap(VkCommandBuffer buffer)
-{
-    return &localResourceStateMap[buffer];
-}
-
-VulkanFrameProcess::ResourceStateMap* VulkanFrameProcess::CommandPool::obtainLocalStateMap(VkCommandBuffer commandbuffer, CommandType type, CommandInstance instance)
-{
-    if (type == CommandType::Primary)
-    {
-        if (instance == CommandInstance::Dynamic)
-        {
-            return primary.obtainLocalResourceStateMap(commandbuffer);
-        }
-    }
-    else if (type == CommandType::Bundle)
-    {
-        if (instance == Dynamic)
-        {
-            return secondary.obtainLocalResourceStateMap(commandbuffer);
-        }
-    }
-    return primary.obtainLocalResourceStateMap(commandbuffer);
-}
-
-
 VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuffers(VkDevice device, VkCommandPool pool, VkCommandBufferLevel level, uint numRequested, uint numOverflowCount)
 {
     VkResult result = VK_SUCCESS;
@@ -433,12 +408,6 @@ VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCo
         info.level = level;
 
         result = vkAllocateCommandBuffers(device, &info, &commandbuffers[currentCbIndex]);
-
-        for (uint i = 0; i < numRequested; ++i)
-        {
-            VkCommandBuffer buffer = commandbuffers[currentCbIndex + i];
-            localResourceStateMap[buffer] = { };
-        }
     }
 
     VkCommandBuffer* buffers = nullptr;
@@ -464,8 +433,6 @@ VkCommandBuffer VulkanFrameProcess::CommandPool::obtainCommandBuffer(VkDevice de
 void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()
 {
     currentCbIndex = 0;
-    for (auto& it : localResourceStateMap)
-        it.second.clear();
 }
 
 void VulkanFrameProcess::ThreadContext::initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices)

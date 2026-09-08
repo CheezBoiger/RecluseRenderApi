@@ -198,15 +198,17 @@ void CommandList::transitionResources(ResourceTransition* transitions, uint numT
     {
         Transition* transition = reinterpret_cast<Transition*>(offset + sizeof(Transition) * i);
         transition->resource = transitions[i].resource;
-        transition->resourceState = transitions[i].newState;
+        transition->newState = transitions[i].newState;
+        transition->oldState = transitions[i].oldState;
     }
     
     m_primaryChunk.sizeBytes += sizeBytes; 
 }
 
-void CommandList::transition(Resource* resource, ResourceState resourceState)
+void CommandList::transition(Resource* resource, ResourceState oldState, ResourceState resourceState)
 {
     ResourceTransition trans;
+    trans.oldState = oldState;
     trans.newState = resourceState;
     trans.resource = resource;
     transitionResources(&trans, 1);

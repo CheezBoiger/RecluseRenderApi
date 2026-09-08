@@ -151,7 +151,8 @@ struct BindRenderTargetsHeader
 struct Transition
 {
     Resource*       resource;
-    ResourceState   resourceState;
+    ResourceState   newState;
+    ResourceState   oldState;
 };
 
 struct BarrierTransitionHeader

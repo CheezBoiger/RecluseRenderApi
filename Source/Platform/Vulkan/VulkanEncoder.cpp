@@ -50,6 +50,13 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
             }
             case CommandOpcode_BarrierTransition:
             {
+                R_ASSERT_FORMAT(chunk.type == Primary, "Barriers can only be executed on primary command lists! Command list id=%d", chunk.id);
+                if (chunk.type == Bundle)
+                {
+                    R_ERROR("Vulkan", "Bundles can not have barriers! Barriers must be executed on primary command lists!");
+                    break;
+                }
+
                 BarrierTransitionHeader* transitionHeader = (BarrierTransitionHeader*)(address + sizeof(CommandHeader));
                 const uint numTransitions = transitionHeader->numTransitions;
                 Transition* transitions = reinterpret_cast<Transition*>(reinterpret_cast<UPtr>(transitionHeader) + sizeof(BarrierTransitionHeader));
@@ -58,23 +65,16 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                     Transition& transition = transitions[i];
                     VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
 
-                    auto& it = tracker.localStateMap->find(nativeResource->raw());
-
-                    if (it == tracker.localStateMap->end())
-                        (*tracker.localStateMap)[nativeResource->raw()] = { nativeResource->getInitialResourceState(), 0 };
-
-                    State& state = tracker.localStateMap->operator[](nativeResource->raw());
-
                     if (nativeResource->isImage())
                     {
                         VkImage image = nativeResource->get<VkImage>();
                         VkImageMemoryBarrier memoryBarrier = { };
-                        memoryBarrier.oldLayout = getImageLayout(tracker.localStateMap->operator[](nativeResource->raw()).resourceState);
-                        memoryBarrier.newLayout = getImageLayout(transition.resourceState);
+                        memoryBarrier.oldLayout = getImageLayout(transition.oldState);
+                        memoryBarrier.newLayout = getImageLayout(transition.newState);
                         memoryBarrier.image = image;
                         memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask = state.accessMask == 0 ? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
-                        memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.resourceState);
+                        memoryBarrier.srcAccessMask = getDesiredResourceStateAccessMask(transition.oldState);
+                        memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.newState);
                         memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
                         memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
                         memoryBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -82,11 +82,6 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                         memoryBarrier.subresourceRange.baseMipLevel = 0;
                         memoryBarrier.subresourceRange.layerCount = 1;
                         memoryBarrier.subresourceRange.levelCount = 1;
-
-                        // This will update the local resource state map.                        
-                        state.resourceState = transition.resourceState;
-                        state.accessMask = memoryBarrier.dstAccessMask;
-                        state.pipelineStage;
 
                         VkPipelineStageFlags srcPipelineStage = getDestinationPipelineStage(memoryBarrier.srcAccessMask);
                         VkPipelineStageFlags dstPipelineStage = getDestinationPipelineStage(memoryBarrier.dstAccessMask);
@@ -98,8 +93,8 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                         VkBuffer buffer = nativeResource->get<VkBuffer>();
                         VkBufferMemoryBarrier memoryBarrier = { };
                         memoryBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask         = state.accessMask == 0 ? getDesiredResourceStateAccessMask(ResourceState_Unknown) : state.accessMask;
-                        memoryBarrier.dstAccessMask         = getDesiredResourceStateAccessMask(transition.resourceState);
+                        memoryBarrier.srcAccessMask         = getDesiredResourceStateAccessMask(transition.oldState);
+                        memoryBarrier.dstAccessMask         = getDesiredResourceStateAccessMask(transition.newState);
                         memoryBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
                         memoryBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
                         memoryBarrier.offset                = 0;

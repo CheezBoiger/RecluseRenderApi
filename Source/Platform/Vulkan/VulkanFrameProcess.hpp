@@ -23,14 +23,6 @@ class VulkanFrameProcess : public FrameProcess
 {
     class CommandPool;
 public:
-    struct State {
-        ResourceState           resourceState;
-        VkAccessFlags           accessMask;
-        VkPipelineStageFlags    pipelineStage;
-    };
-
-    typedef std::unordered_map<VulkanResource::ResourceHandle, State> ResourceStateMap;
-
     static const uint kNumMaxSignalSemaphores   = 1;
     static const uint kNumMaxWaitSemaphores     = 1;
     static const uint kNumMaxSignalFences       = 1;
@@ -77,14 +69,12 @@ private:
         struct CommandBufferHandler
         {
             std::vector<VkCommandBuffer> commandbuffers;
-            std::unordered_map<VkCommandBuffer, ResourceStateMap> localResourceStateMap;
             uint currentCbIndex;
 
             void                        reset();
             VkCommandBuffer*            obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
                                                 VkCommandBufferLevel level, 
                                                 uint numRequested, uint numOverflowCount);
-            ResourceStateMap*           obtainLocalResourceStateMap(VkCommandBuffer buffer);
         };
 
         VkCommandPool pool;
@@ -100,7 +90,6 @@ private:
                                             CommandType type, CommandInstance instance);
         VkCommandBuffer*                obtainCommandBuffers(VkDevice device, 
                                             CommandType type, CommandInstance instance, uint numBuffers);
-        ResourceStateMap*               obtainLocalStateMap(VkCommandBuffer commandbuffer, CommandType type, CommandInstance instance);
         
     private:
     };
@@ -129,7 +118,6 @@ private:
     {
         Frame& frame;
         VkCommandBuffer commandbuffer;
-        ResourceStateMap* localStateMap;
         CommandPool& commandPool;
     };
 
@@ -191,7 +179,6 @@ private:
     VkDevice                            m_device;
     VulkanDevice::QueueIndices          m_queueIndices;
     VulkanSwapchain*                    m_swapchainRef;
-    ResourceStateMap                    m_resourceStateMap;
 };
 } // Vulkan
 } // RenderApi

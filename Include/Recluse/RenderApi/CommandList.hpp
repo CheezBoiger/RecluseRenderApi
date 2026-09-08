@@ -56,6 +56,7 @@ struct CommandStreamChunk
 struct ResourceTransition
 {
     Resource* resource;
+    ResourceState oldState;
     ResourceState newState;
 };
 
@@ -85,7 +86,7 @@ public:
     void clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 clearStencil, const Rect& rect); 
 
     void transitionResources(ResourceTransition* transitions, uint numTransitions);
-    void transition(Resource* resource, ResourceState newState);
+    void transition(Resource* resource, ResourceState oldState, ResourceState newState);
 
     void drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance);
     void drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance);

@@ -134,7 +134,9 @@ public:
 
 enum ResourceState
 {
+    // Unknown states are states in which the application does not know, or care about the state the resource is in.
     ResourceState_Unknown,
+    ResourceState_Undefined = ResourceState_Unknown,
     ResourceState_Common,
     ResourceState_VertexBuffer,
     ResourceState_IndexBuffer,

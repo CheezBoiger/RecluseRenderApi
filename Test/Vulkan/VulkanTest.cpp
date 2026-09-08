@@ -190,7 +190,7 @@ TEST(VulkanTest, CreateDevice)
         commandlists[1].reset();
 
         commandlists[0].begin({ Primary, Dynamic });
-        commandlists[0].transition(swapchain->currentBackbuffer(), ResourceState_Present);
+        commandlists[0].transition(swapchain->currentBackbuffer(), ResourceState_Undefined, ResourceState_Present);
 
         commandlists[0].end();
 
