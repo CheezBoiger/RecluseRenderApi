@@ -19,11 +19,21 @@ static CommandList::Id getId()
     return kIdCounter++;
 }
 
-CommandList::CommandList()
+CommandList::CommandList(MemoryArena& arena)
     : m_id(kBadId)
     , m_status(CommandListStatus_Reset)
+    , m_arena(arena)
 {
     m_id = getId();
+    const U64 commandSizeBytes = R_MB(8);
+    const U64 resourceSizebytes = R_MB(8);
+    UPtr ptr = (UPtr)m_arena.allocateRaw(commandSizeBytes);
+    R_ASSERT_FORMAT(ptr != 0, "Failed to allocate command memory for command list.");
+    m_commandAllocator.initialize(ptr, commandSizeBytes);
+
+    ptr = (UPtr)m_arena.allocateRaw(resourceSizebytes);
+    R_ASSERT_FORMAT(ptr != 0, "Failed to allocate resource memory for command list.");
+    m_resourceAllocator.initialize(ptr, resourceSizebytes);
 }
 
 void CommandList::begin(const CommandList::BeginDescription& beginDescription)
@@ -33,7 +43,7 @@ void CommandList::begin(const CommandList::BeginDescription& beginDescription)
     if (m_primaryChunk.sizeBytes != 0) return;
     if (m_status == CommandListStatus_Recording) return;
 
-    CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate<CommandHeader>();
+    CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate(sizeof(CommandHeader), 1u);
     command->opcode = CommandOpcode_Begin;
     command->size = 0;
 
@@ -53,7 +63,7 @@ void CommandList::begin(const CommandList::BeginDescription& beginDescription)
 void CommandList::end()
 {
     R_ASSERT(m_status == CommandListStatus_Recording);
-    CommandHeader* command = m_commandAllocator.allocate<CommandHeader>();
+    CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate(sizeof(CommandHeader), 1u);
     command->opcode = CommandOpcode_End;
     command->size = 0;
 
@@ -64,7 +74,7 @@ void CommandList::end()
 
 void CommandList::dispatch(U32 x, U32 y, U32 z)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<DispatchCommand>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<DispatchCommand>(), 1u);
     header->opcode = CommandOpcode_Dispatch;
     header->size = sizeof(DispatchCommand);
 
@@ -78,7 +88,7 @@ void CommandList::dispatch(U32 x, U32 y, U32 z)
 
 void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<BindResourceTableCommand>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<BindResourceTableCommand>(), 1u);
     header->opcode = CommandOpcode_BindResourceTable;
     header->size = sizeof(BindResourceTableCommand);
 
@@ -91,7 +101,7 @@ void CommandList::bindResourceTable(void* resourceTablePtr, uint sizeBytes)
 
 void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<BindSamplerTableCommand>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<BindSamplerTableCommand>(), 1u);
     header->opcode = CommandOpcode_BindSamplerTable;
     header->size = sizeof(BindSamplerTableCommand);
 
@@ -104,7 +114,7 @@ void CommandList::bindSamplerTable(void*samplerTablePtr, uint sizeBytes)
 
 void CommandList::bindPipeline(Pipeline* pipeline)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<BindPipelineCommand>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<BindPipelineCommand>(), 1u);
     header->opcode = CommandOpcode_BindPipeline;
     header->size = sizeof(BindPipelineCommand);
 
@@ -124,7 +134,7 @@ void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRende
 
     const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes;
 
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(sizeBytes, 1u);
     header->opcode = CommandOpcode_BindRenderTargets;
     header->size = dataSizeBytes;
 
@@ -149,7 +159,7 @@ void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRende
 
 void CommandList::drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<DrawIndexedInstancedCommand>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<DrawIndexedInstancedCommand>(), 1u);
     header->opcode = CommandOpcode_DrawIndexedInstanced;
     header->size = sizeof(DrawIndexedInstancedCommand);
 
@@ -165,7 +175,7 @@ void CommandList::drawIndexedInstanced(uint indexCount, uint instanceCount, uint
 
 void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<DrawInstancedCommand>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<DrawInstancedCommand>(), 1u);
     header->opcode = CommandOpcode_DrawInstanced;
     header->size = sizeof(DrawInstancedCommand);
 
@@ -180,12 +190,14 @@ void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseV
 
 void CommandList::transitionResources(ResourceTransition* transitions, uint numTransitions)
 {
+    R_ASSERT_FORMAT(m_primaryChunk.type != CommandType::Bundle, "Bundles should not transition resources! Skipping.");
+    if (m_primaryChunk.type == Bundle) return;
     if (numTransitions == 0) return;
     const uint dataSizeBytes = sizeof(BarrierTransitionHeader) + sizeof(Transition) * numTransitions;
     const uint sizeBytes = sizeof(CommandHeader) + 
         dataSizeBytes;
     
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(sizeBytes, 1u);
     header->opcode = CommandOpcode_BarrierTransition;
     header->size = dataSizeBytes;
 
@@ -199,16 +211,14 @@ void CommandList::transitionResources(ResourceTransition* transitions, uint numT
         Transition* transition = reinterpret_cast<Transition*>(offset + sizeof(Transition) * i);
         transition->resource = transitions[i].resource;
         transition->newState = transitions[i].newState;
-        transition->oldState = transitions[i].oldState;
     }
     
     m_primaryChunk.sizeBytes += sizeBytes; 
 }
 
-void CommandList::transition(Resource* resource, ResourceState oldState, ResourceState resourceState)
+void CommandList::transition(Resource* resource, ResourceState resourceState)
 {
     ResourceTransition trans;
-    trans.oldState = oldState;
     trans.newState = resourceState;
     trans.resource = resource;
     transitionResources(&trans, 1);
@@ -222,7 +232,7 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
         + sizeof(CommandList*) * numBundles;
     const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes; 
 
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(sizeBytes);
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(sizeBytes, 1u);
     header->opcode = CommandOpcode_ExecuteBundles;
     header->size = dataSizeBytes;
 
@@ -244,7 +254,7 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
 
 void CommandList::clearRenderTarget(uint renderTargetIndex, const F32 clearColor[4], const Rect& rect)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<ClearRenderTargetHeader>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<ClearRenderTargetHeader>(), 1u);
     header->opcode = CommandOpcode_ClearRenderTarget;
     header->size = sizeof(ClearRenderTargetHeader);
     
@@ -262,7 +272,7 @@ void CommandList::clearRenderTarget(uint renderTargetIndex, const F32 clearColor
 
 void CommandList::clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 clearStencil, const Rect& rect)
 {
-    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocateRaw(CommandHeader::dataSize<ClearDepthStencilHeader>());
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<ClearDepthStencilHeader>(), 1u);
     header->opcode = CommandOpcode_ClearDepthStencil;
     header->size = sizeof(ClearDepthStencilHeader);
 
@@ -277,8 +287,8 @@ void CommandList::clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 cl
 
 void CommandList::reset()
 {
-    m_commandAllocator.clear();
-    m_resourceAllocator.clear();
+    m_commandAllocator.reset();
+    m_resourceAllocator.reset();
     m_chunks.clear();
     m_status = CommandListStatus_Reset;
 
@@ -290,6 +300,40 @@ void CommandList::reset()
 const CommandStreamChunk* CommandList::getChunks() const
 {
     return m_chunks.data();
+}
+
+CommandList::CommandList(CommandList&& other)
+    : m_id(other.m_id)
+    , m_status(other.m_status)
+    , m_arena(other.m_arena)
+    , m_commandAllocator(std::move(other.m_commandAllocator))
+    , m_resourceAllocator(std::move(other.m_resourceAllocator))
+    , m_primaryChunk(other.m_primaryChunk)
+    , m_chunks(std::move(other.m_chunks))
+{
+    other.m_id                          = kBadId;
+    other.m_status                      = CommandListStatus_Reset;
+    other.m_primaryChunk.baseAddress    = 0;
+    other.m_primaryChunk.sizeBytes      = 0;
+}
+
+CommandList& CommandList::operator=(CommandList&& other)
+{
+    if (this != &other)
+    {
+        m_id                    = other.m_id;
+        m_status                = other.m_status;
+        m_arena                 = other.m_arena;
+        m_commandAllocator      = std::move(other.m_commandAllocator);
+        m_resourceAllocator     = std::move(other.m_resourceAllocator);
+        m_primaryChunk          = other.m_primaryChunk;
+        m_chunks                = std::move(other.m_chunks);
+        other.m_id              = kBadId;
+        other.m_status          = CommandListStatus_Reset;
+        other.m_primaryChunk.baseAddress    = 0;
+        other.m_primaryChunk.sizeBytes      = 0;
+    }
+    return *this;
 }
 } // RenderApi
 } // Recluse

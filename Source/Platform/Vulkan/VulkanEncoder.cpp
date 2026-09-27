@@ -62,18 +62,31 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                 Transition* transitions = reinterpret_cast<Transition*>(reinterpret_cast<UPtr>(transitionHeader) + sizeof(BarrierTransitionHeader));
                 for (uint i = 0; i < numTransitions; ++ i)
                 {
-                    Transition& transition = transitions[i];
+                    const Transition& transition = transitions[i];
                     VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
+
+                    if (tracker.resourceStateDatabase.hasResourceState(transition.resource->getId()) == false)
+                    {
+                        tracker.resourceStateDatabase.setCurrentResourceState(transition.resource->getId(), ResourceState_Undefined);
+                    }
+
+                    const ResourceState currentState = tracker.resourceStateDatabase.queryCurrentResourceState(transition.resource->getId());
+
+                    if (currentState == transition.newState)
+                    {
+                        // No need to transition, the resource is already in the desired state.
+                        continue;
+                    }
 
                     if (nativeResource->isImage())
                     {
                         VkImage image = nativeResource->get<VkImage>();
                         VkImageMemoryBarrier memoryBarrier = { };
-                        memoryBarrier.oldLayout = getImageLayout(transition.oldState);
+                        memoryBarrier.oldLayout = getImageLayout(currentState);
                         memoryBarrier.newLayout = getImageLayout(transition.newState);
                         memoryBarrier.image = image;
                         memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask = getDesiredResourceStateAccessMask(transition.oldState);
+                        memoryBarrier.srcAccessMask = getDesiredResourceStateAccessMask(currentState);
                         memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.newState);
                         memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
                         memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -93,7 +106,7 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                         VkBuffer buffer = nativeResource->get<VkBuffer>();
                         VkBufferMemoryBarrier memoryBarrier = { };
                         memoryBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask         = getDesiredResourceStateAccessMask(transition.oldState);
+                        memoryBarrier.srcAccessMask         = getDesiredResourceStateAccessMask(currentState);
                         memoryBarrier.dstAccessMask         = getDesiredResourceStateAccessMask(transition.newState);
                         memoryBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
                         memoryBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
@@ -105,6 +118,9 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
 
                         barriers[{ srcPipelineStage, dstPipelineStage }].bufferBarriers.push_back(memoryBarrier);
                     }
+
+                    // Update the resource state database with the new state.
+                    tracker.resourceStateDatabase.setCurrentResourceState(transition.resource->getId(), transition.newState);
                 }
                 break;
             }
@@ -130,6 +146,10 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                     bundleBuffers[i] = secondary;
                 }
                 vkCmdExecuteCommands(tracker.commandbuffer, numBundles, bundleBuffers);
+                break;
+            }
+            case CommandOpcode_ClearRenderTarget:
+            {
                 break;
             }
             default:

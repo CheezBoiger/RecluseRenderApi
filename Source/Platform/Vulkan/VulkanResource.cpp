@@ -91,6 +91,31 @@ uint VulkanResource::makeResourceId()
     ScopedLock _(resourceCounterMutex);
     return kNumFirstReservedIdentifers + kResourceCounter++;
 }
+
+ResourceState ResourceStateDatabase::queryCurrentResourceState(ResourceId id)
+{
+    ScopedLock _(m_resourceMutex);
+    auto it = m_currentResourceStates.find(id.value);
+    if (it != m_currentResourceStates.end())
+    {
+        return it->second;
+    }
+    return ResourceState_Unknown;
+}
+
+void ResourceStateDatabase::setCurrentResourceState(ResourceId id, ResourceState state)
+{
+    ScopedLock _(m_resourceMutex);
+    // The current state is newer than the one we are trying to set, so we don't update it.
+    m_currentResourceStates[id.value] = state;
+}
+
+Bool ResourceStateDatabase::hasResourceState(ResourceId id)
+{
+    ScopedLock _(m_resourceMutex);
+    auto it = m_currentResourceStates.find(id.value);
+    return (it != m_currentResourceStates.end());
+}
 } // Vulkan
 } // RenderApi 
 } // Recluse

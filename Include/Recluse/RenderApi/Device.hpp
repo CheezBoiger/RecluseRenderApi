@@ -40,7 +40,7 @@ public:
     };
 
     // Submit command lists to the frame process, must be called while frame has begun processing.
-    virtual ResultCode                  submitCommandLists(CommandQueueType type, CommandList* lists, uint numCommandLists) = 0;
+    virtual ResultCode                  submitCommandLists(CommandQueueType type, CommandList** lists, uint numCommandLists) = 0;
 
     // Begins a frame to process.
     virtual void                        beginFrame(const FrameDescription& frameDescription) = 0;

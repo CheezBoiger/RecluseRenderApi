@@ -15,7 +15,8 @@ using namespace Recluse::RenderApi;
 
 TEST(CommandListTest, SimpleCommand)
 {
-    CommandList list;
+    MemoryArena arena(R_MB(16));
+    CommandList list(arena);
 
     list.begin();
     list.end();

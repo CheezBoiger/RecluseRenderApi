@@ -5,7 +5,7 @@
 
 #include <Recluse/RenderApi/Common.hpp>
 #include <Recluse/Types.hpp>
-#include <Recluse/Memory/LinearScratchMemory.hpp>
+#include <Recluse/Memory/MemoryArena.hpp>
 
 #include <RecluseRenderApi_exports.hpp>
 
@@ -56,7 +56,6 @@ struct CommandStreamChunk
 struct ResourceTransition
 {
     Resource* resource;
-    ResourceState oldState;
     ResourceState newState;
 };
 
@@ -77,7 +76,13 @@ public:
         CommandInstance instance;
     };
 
-    CommandList();
+    CommandList(MemoryArena& arena);
+
+    CommandList(const CommandList&) = delete;
+    CommandList& operator=(const CommandList&) = delete;
+
+    CommandList(CommandList&& other);
+    CommandList& operator=(CommandList&& other);
 
     void begin(const BeginDescription& beginDescription = { Primary, Dynamic });
     void end();
@@ -86,7 +91,7 @@ public:
     void clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 clearStencil, const Rect& rect); 
 
     void transitionResources(ResourceTransition* transitions, uint numTransitions);
-    void transition(Resource* resource, ResourceState oldState, ResourceState newState);
+    void transition(Resource* resource, ResourceState newState);
 
     void drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance);
     void drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance);
@@ -146,12 +151,12 @@ private:
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
     // to reduce these calls. (batching would be highly beneficial.)
-    LinearScratchMemory<R_KB(256), true> m_commandAllocator;
+    LinearAllocator m_commandAllocator;
 
     // Resource allocator for managing resources within the command list. This is static, for any resizing
     // we will need to reallocate the resource allocator as well. (Any existing handles
     // will be invalidated if it resizes.)
-    LinearScratchMemory<R_KB(256)> m_resourceAllocator;
+    LinearAllocator m_resourceAllocator;
 
     CommandStreamChunk m_primaryChunk;  // Primary chunk of the command list. This is the main chunk that holds all commands.
 
@@ -162,6 +167,8 @@ private:
 
     // status of the command list.
     CommandListStatus m_status;
+
+    MemoryArena& m_arena;
 };
 } // RenderApi
 } // Recluse

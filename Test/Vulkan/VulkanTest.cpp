@@ -169,8 +169,7 @@ TEST(VulkanTest, CreateDevice)
     ASSERT_NE(frameProcessor, nullptr);
 
     int i = 0;
-    CommandList bundle;
-    CommandList commandlists[2];
+    MemoryArena arena(R_MB(64));
     
     while (!window->shouldClose())
     {
@@ -186,22 +185,28 @@ TEST(VulkanTest, CreateDevice)
 
         frameProcessor->beginFrame(frameDescription);
 
-        commandlists[0].reset();
-        commandlists[1].reset();
+        arena.clear();
 
-        commandlists[0].begin({ Primary, Dynamic });
-        commandlists[0].transition(swapchain->currentBackbuffer(), ResourceState_Undefined, ResourceState_Present);
+        CommandList bundle(arena);
+        CommandList commandlist0(arena);
+        CommandList commandlist1(arena);
+        commandlist0.reset();
+        commandlist1.reset();
 
-        commandlists[0].end();
+        commandlist0.begin({ Primary, Dynamic });
+        commandlist0.transition(swapchain->currentBackbuffer(), ResourceState_Present);
 
-        commandlists[1].begin({ Primary, Dynamic });
+        commandlist0.end();
+
+        commandlist1.begin({ Primary, Dynamic });
         bundle.reset();
         bundle.begin({ Bundle, Dynamic });
         bundle.end();
         CommandList* bundles[] = { &bundle };
-        commandlists[1].executeBundles(bundles, 1);
-        commandlists[1].end();
+        commandlist1.executeBundles(bundles, 1);
+        commandlist1.end();
 
+        CommandList* commandlists[] = { &commandlist0, &commandlist1 };
         frameProcessor->submitCommandLists(CommandQueueType_Graphics, commandlists, 2);
         device->processFrame(frameProcessor->endFrame());
 

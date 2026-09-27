@@ -6,6 +6,7 @@
 #include "VulkanCommon.hpp"
 
 #include <Recluse/RenderApi/Resource.hpp>
+#include <Recluse/Threading/Threading.hpp>
 
 #include <RecluseRenderApi_exports.hpp>
 #include <unordered_map>
@@ -45,7 +46,7 @@ public:
         , m_handle(reinterpret_cast<ResourceHandle>(buffer)) { }
 
     VulkanResource(VkImage image, ResourceId id = { })
-        : Resource(id)
+        : Resource(id) 
         , m_type(Image)
         , m_initialResourceState(ResourceState_Unknown)
         , m_handle(reinterpret_cast<ResourceHandle>(image)) { }
@@ -82,6 +83,17 @@ private:
     Type                                                    m_type;
     ResourceHandle                                          m_handle;
     ResourceState                                           m_initialResourceState;
+};
+
+class ResourceStateDatabase
+{
+public:
+    ResourceState   queryCurrentResourceState(ResourceId id);
+    void            setCurrentResourceState(ResourceId id, ResourceState state);
+    Bool            hasResourceState(ResourceId id);
+private:
+    MutexGuard                        m_resourceMutex;
+    std::unordered_map<uint, ResourceState>   m_currentResourceStates;
 };
 } // Vulkan
 } // RenderApi

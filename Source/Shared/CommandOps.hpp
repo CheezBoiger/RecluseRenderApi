@@ -152,7 +152,6 @@ struct Transition
 {
     Resource*       resource;
     ResourceState   newState;
-    ResourceState   oldState;
 };
 
 struct BarrierTransitionHeader

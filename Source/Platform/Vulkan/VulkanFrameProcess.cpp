@@ -155,7 +155,7 @@ FrameHandle VulkanFrameProcess::endFrame()
     return handle;
 }
 
-ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, CommandList* lists, uint numLists)
+ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, CommandList** lists, uint numLists)
 {
     if (numLists == 0) return RecluseResult_Ok;
 
@@ -165,7 +165,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
     uint totalSecondaryCommandBufferCount = 0;
     for (uint i = 0; i < numLists; ++i)
     {
-        totalSecondaryCommandBufferCount += lists[i].getNumChunks();
+        totalSecondaryCommandBufferCount += lists[i]->getNumChunks();
     }
 
     struct Submittal {
@@ -194,7 +194,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
         VkCommandBuffer cmdBuffer = commandPool.obtainCommandBuffer(m_device, chunk.type, chunk.instance);  
 
         VulkanCommandListEncoder encoder(m_device);
-        StateTracker tracker = { frame, cmdBuffer, commandPool };
+        StateTracker tracker = { frame, cmdBuffer, commandPool, m_resourceStateDatabase };
         encoder(chunk, tracker);
 
         if (commandbufferOut)
@@ -214,8 +214,8 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
 
     for (uint i = 0; i < numLists ; ++i)
     {
-        const CommandStreamChunk* chunks    = lists[i].getChunks();
-        const uint numChunks                = lists[i].getNumChunks();
+        const CommandStreamChunk* chunks    = lists[i]->getChunks();
+        const uint numChunks                = lists[i]->getNumChunks();
 
         // Submit each bundle chunk to the thread pool for encoding. This should be submitted first, as the primary command list
         // will be recording after all bundles are encoded.
@@ -225,12 +225,12 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
         }
 
         VkCommandBuffer* out = dataPacket.write<VkCommandBuffer>(nullptr);
-        m_workerPool.submitTask(func, std::ref(frame), queryFamilyIndex(type), out, lists[i].getPrimaryChunk());
+        m_workerPool.submitTask(func, std::ref(frame), queryFamilyIndex(type), out, lists[i]->getPrimaryChunk());
     }
 
     for (uint i = 0; i < numLists; ++i)
     {
-        const CommandStreamChunk& chunk = lists[i].getPrimaryChunk();
+        const CommandStreamChunk& chunk = lists[i]->getPrimaryChunk();
         if (chunk.type == CommandType::Primary)
             dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
@@ -301,23 +301,36 @@ void VulkanFrameProcess::CommandPool::initialize(VkDevice device, uint familyInd
     commandPoolCi.queueFamilyIndex = familyIndex;
     commandPoolCi.flags = 0;
     VkResult result = vkCreateCommandPool(device, &commandPoolCi, nullptr, &pool);
+
+    primary.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    secondary.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
     R_ASSERT(result == VK_SUCCESS);
+}
+
+void VulkanFrameProcess::CommandPool::CommandBufferHandler::release(VkDevice device, VkCommandPool pool)
+{
+    if (!device) return;
+    if (!commandbuffers.empty())
+    {
+        vkFreeCommandBuffers(device, pool,
+            commandbuffers.size(), commandbuffers.data());
+    }
+
+    if (!persistentCommandBuffers.empty())
+    {
+        for (auto& it : persistentCommandBuffers)
+        {
+            vkFreeCommandBuffers(device, 
+                pool, 1, &it.second);
+        }
+    }
 }
 
 void VulkanFrameProcess::CommandPool::release(VkDevice device)
 {
     if (!device) return;
-    if (!primary.commandbuffers.empty())
-    {
-        vkFreeCommandBuffers(device, pool,
-            primary.commandbuffers.size(), primary.commandbuffers.data());
-    }
-
-    if (!secondary.commandbuffers.empty())
-    {
-        vkFreeCommandBuffers(device, pool,
-            secondary.commandbuffers.size(), secondary.commandbuffers.data());
-    }
+    primary.release(device, pool);
+    secondary.release(device, pool);
 
     if (pool)
         vkDestroyCommandPool(device, pool, nullptr);
@@ -379,20 +392,20 @@ VkCommandBuffer* VulkanFrameProcess::CommandPool::obtainCommandBuffers(VkDevice 
     {
         if (instance == CommandInstance::Dynamic)
         {
-            result = primary.obtainCommandBuffers(device, pool, VK_COMMAND_BUFFER_LEVEL_PRIMARY, numBuffers, 2);
-        }
+            result = primary.obtainCommandBuffers(device, pool, numBuffers, 2);
+        } 
     }
     else if (type == CommandType::Bundle)
     {
         if (instance == Dynamic)
         {
-            result = secondary.obtainCommandBuffers(device, pool, VK_COMMAND_BUFFER_LEVEL_SECONDARY, numBuffers, 2);
+            result = secondary.obtainCommandBuffers(device, pool, numBuffers, 2);
         }
     }
     return result;
 }
 
-VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuffers(VkDevice device, VkCommandPool pool, VkCommandBufferLevel level, uint numRequested, uint numOverflowCount)
+VkCommandBuffer* VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainCommandBuffers(VkDevice device, VkCommandPool pool, uint numRequested, uint numOverflowCount)
 {
     VkResult result = VK_SUCCESS;
     if (numRequested == 0) return nullptr;
@@ -428,6 +441,11 @@ VkCommandBuffer VulkanFrameProcess::CommandPool::obtainCommandBuffer(VkDevice de
     if (result) 
         cmdBuffer = *result;
     return cmdBuffer;
+}
+
+VkCommandBuffer VulkanFrameProcess::CommandPool::CommandBufferHandler::obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id)
+{
+    return VK_NULL_HANDLE;
 }
 
 void VulkanFrameProcess::CommandPool::CommandBufferHandler::reset()

@@ -5,11 +5,12 @@
 
 #include <Recluse/Threading/ThreadPool.hpp>
 #include <Recluse/RenderApi/Device.hpp>
-#include <Recluse/Memory/LinearScratchMemory.hpp>
+#include <Recluse/Memory/MemoryArena.hpp>
 #include <Recluse/Threading/Threading.hpp>
 
 #include "VulkanCommon.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanResource.hpp"
 
 #include <vector>
 
@@ -45,7 +46,7 @@ public:
     void                        beginFrame(const FrameDescription& frame) override;
     FrameHandle                 endFrame() override;
 
-    ResultCode                  submitCommandLists(CommandQueueType type, CommandList* lists, uint numLists) override;
+    ResultCode                  submitCommandLists(CommandQueueType type, CommandList** lists, uint numLists) override;
     ResultCode                  waitForFences(Fence* fences, uint numFences) override;
     ResultCode                  signalFences(Fence* fences, uint numFences) override;
     ResultCode                  waitIdle() override;
@@ -68,13 +69,16 @@ private:
     {
         struct CommandBufferHandler
         {
+            std::unordered_map<CommandList::Id, VkCommandBuffer> persistentCommandBuffers;
             std::vector<VkCommandBuffer> commandbuffers;
             uint currentCbIndex;
+            VkCommandBufferLevel level;
 
             void                        reset();
+            void                        release(VkDevice device, VkCommandPool pool);
             VkCommandBuffer*            obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
-                                                VkCommandBufferLevel level, 
                                                 uint numRequested, uint numOverflowCount);
+            VkCommandBuffer             obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id);
         };
 
         VkCommandPool pool;
@@ -103,8 +107,8 @@ private:
 
     struct Frame
     {
-        LinearScratchMemory<R_KB(4)>                                    scratch;
-        LinearScratchMemory<R_KB(4)>                                    frameMemory;
+        ArenaAllocator<R_KB(4), false, 0>                              scratch;
+        ArenaAllocator<R_KB(4), false, 0>                              frameMemory;
         FrameStream                                                     frameStream;
         std::map<U64, ThreadContext>                                    threadContexts;
         VkFence                                                         fence;
@@ -119,6 +123,7 @@ private:
         Frame& frame;
         VkCommandBuffer commandbuffer;
         CommandPool& commandPool;
+        ResourceStateDatabase& resourceStateDatabase;
     };
 
     class VulkanCommandListEncoder
@@ -179,6 +184,8 @@ private:
     VkDevice                            m_device;
     VulkanDevice::QueueIndices          m_queueIndices;
     VulkanSwapchain*                    m_swapchainRef;
+
+    ResourceStateDatabase               m_resourceStateDatabase;
 };
 } // Vulkan
 } // RenderApi
