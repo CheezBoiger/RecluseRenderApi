@@ -5,6 +5,7 @@
 
 #include <Recluse/Threading/ThreadPool.hpp>
 #include <Recluse/RenderApi/Device.hpp>
+#include <Recluse/Structures/LruCache.hpp>
 #include <Recluse/Memory/MemoryArena.hpp>
 #include <Recluse/Threading/Threading.hpp>
 
@@ -41,7 +42,7 @@ public:
         SubmitType_Sync,
     };
 
-    VulkanFrameProcess(VkDevice device = VK_NULL_HANDLE, const VulkanDevice::QueueIndices& queueIndices = { }, const FrameProcess::Description& description = { });
+    VulkanFrameProcess(VulkanDevice* device = nullptr, const VulkanDevice::QueueIndices& queueIndices = { }, const FrameProcess::Description& description = { });
 
     void                        beginFrame(const FrameDescription& frame) override;
     FrameHandle                 endFrame() override;
@@ -65,25 +66,33 @@ private:
     void initialize();
     uint queryFamilyIndex(CommandQueueType type);
 
-    struct CommandPool
+    struct CommandPoolContext
     {
-        struct CommandBufferHandler
+        struct CommandPool
         {
+            enum PoolType {
+                PoolType_Dynamic,
+                PoolType_Persistent,
+                PoolType_Count,
+            };
+
+            VkCommandPool                   pool[PoolType_Count];
             std::unordered_map<CommandList::Id, VkCommandBuffer> persistentCommandBuffers;
             std::vector<VkCommandBuffer> commandbuffers;
             uint currentCbIndex;
             VkCommandBufferLevel level;
 
-            void                        reset();
-            void                        release(VkDevice device, VkCommandPool pool);
-            VkCommandBuffer*            obtainCommandBuffers(VkDevice device, VkCommandPool pool, 
+            void                        initialize(VkDevice device, VkCommandBufferLevel level, uint familyIndex);
+            void                        reset(VkDevice device);
+            void                        release(VkDevice device);
+            VkCommandBuffer*            obtainCommandBuffers(VkDevice device, 
                                                 uint numRequested, uint numOverflowCount);
             VkCommandBuffer             obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id);
+            
         };
 
-        VkCommandPool pool;
-        CommandBufferHandler            primary;
-        CommandBufferHandler            secondary;
+        CommandPool            primary;
+        CommandPool            secondary;
 
 
         void initialize(VkDevice device, uint familyIndex);
@@ -100,7 +109,7 @@ private:
 
     struct ThreadContext
     {
-        std::map<VulkanDevice::QueueProperties::Index, CommandPool> commandPools;
+        std::map<VulkanDevice::QueueProperties::Index, CommandPoolContext> commandPools;
         void initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices);
         void release(VkDevice device);
     };
@@ -122,7 +131,7 @@ private:
     {
         Frame& frame;
         VkCommandBuffer commandbuffer;
-        CommandPool& commandPool;
+        CommandPoolContext& commandPoolContext;
         ResourceStateDatabase& resourceStateDatabase;
     };
 
@@ -181,11 +190,9 @@ private:
     uint                                m_currentFrameIndex;
     uint                                m_maxFramesInFlight;
     ThreadPool                          m_workerPool;
-    VkDevice                            m_device;
+    VulkanDevice*                       m_device;
     VulkanDevice::QueueIndices          m_queueIndices;
     VulkanSwapchain*                    m_swapchainRef;
-
-    ResourceStateDatabase               m_resourceStateDatabase;
 };
 } // Vulkan
 } // RenderApi

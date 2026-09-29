@@ -88,12 +88,29 @@ private:
 class ResourceStateDatabase
 {
 public:
+    ResourceStateDatabase() { }
+    ResourceStateDatabase(const ResourceStateDatabase&) = delete;
+    ResourceStateDatabase& operator=(const ResourceStateDatabase&) = delete;
+
+    ResourceStateDatabase(ResourceStateDatabase&& other)
+        : m_resourceMutex(std::move(other.m_resourceMutex))
+        , m_currentResourceStates(std::move(other.m_currentResourceStates))
+    {
+    }
+
+    ResourceStateDatabase& operator=(ResourceStateDatabase&& other)
+    {
+        m_resourceMutex = std::move(other.m_resourceMutex);
+        m_currentResourceStates = std::move(other.m_currentResourceStates);
+        return *this;
+    }
+
     ResourceState   queryCurrentResourceState(ResourceId id);
     void            setCurrentResourceState(ResourceId id, ResourceState state);
     Bool            hasResourceState(ResourceId id);
 private:
-    MutexGuard                        m_resourceMutex;
-    std::unordered_map<uint, ResourceState>   m_currentResourceStates;
+    MutexGuard                              m_resourceMutex;
+    std::unordered_map<uint, ResourceState> m_currentResourceStates;
 };
 } // Vulkan
 } // RenderApi

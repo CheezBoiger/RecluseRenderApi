@@ -139,7 +139,7 @@ FrameProcess* VulkanDevice::createFrameProcess(const FrameProcess::Description& 
 {
     auto& it = g_frameProcessMap[this];
     
-    it.push_back(new VulkanFrameProcess(get(), m_queueIndices, description));
+    it.push_back(new VulkanFrameProcess(this, m_queueIndices, description));
 
     return it.back();
 }

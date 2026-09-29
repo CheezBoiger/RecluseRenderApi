@@ -267,6 +267,8 @@ void VulkanSwapchain::initializeSwapchainResources()
     {
         // Make the handlers.
         m_imageResources[i] = std::move(VulkanResource(images[i], { i }));
+        // The resource database isn't aware of the new resource state transition. so we will need to figure out 
+        // a way to reset it.
     }
 }
 

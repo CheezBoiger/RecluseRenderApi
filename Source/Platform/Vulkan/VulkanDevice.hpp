@@ -5,6 +5,7 @@
 
 #include "VulkanCommon.hpp"
 #include "VulkanSwapchain.hpp"
+#include "VulkanResource.hpp"
 
 #include <Recluse/RenderApi/Adapter.hpp>
 #include <Recluse/RenderApi/Device.hpp>
@@ -43,6 +44,12 @@ public:
 
     ~VulkanDevice();
 
+    VulkanDevice(const VulkanDevice&) = delete;
+    VulkanDevice& operator=(const VulkanDevice&) = delete;
+    
+    VulkanDevice(VulkanDevice&&) = default;
+    VulkanDevice& operator=(VulkanDevice&&) = default;
+
     virtual Resource*       createResource(const Resource::Description& description, 
         void* pInitialData, uint initialSizeBytes) override;
     virtual Pipeline*       createPipeline(const PipelineDescription& description) override;
@@ -71,6 +78,8 @@ public:
     VkFence                 internalCreateFence(const VkFenceCreateInfo& ci); 
     void                    internalFreeFence(VkFence fence);
 
+    ResourceStateDatabase&  getDatabase() { return m_stateDatabase; }
+
 private:
     VkDevice                m_device;
     VulkanAdapter*          m_adapter;
@@ -81,6 +90,8 @@ private:
     VkQueue                 m_graphicsQueue;
     VkQueue                 m_computeQueue;
     VkQueue                 m_copyQueue;
+
+    ResourceStateDatabase   m_stateDatabase;
 
     std::map<VkSurfaceKHR, VulkanSwapchain>         m_swapchainMap;
     std::vector<ResourceId>                         m_resourceMap;
