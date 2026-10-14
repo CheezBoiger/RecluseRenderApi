@@ -199,11 +199,13 @@ TEST(VulkanTest, CreateDevice)
         commandlist0.end();
 
         commandlist1.begin({ Primary, Dynamic });
+        commandlist1.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
         bundle.reset();
         bundle.begin({ Bundle, Dynamic });
         bundle.end();
         CommandList* bundles[] = { &bundle };
         commandlist1.executeBundles(bundles, 1);
+        commandlist1.transition(swapchain->currentBackbuffer(), ResourceState_Present);
         commandlist1.end();
 
         CommandList* commandlists[] = { &commandlist0, &commandlist1 };

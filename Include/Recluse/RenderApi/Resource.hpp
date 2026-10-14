@@ -7,6 +7,8 @@
 
 #include <Recluse/RenderApi/Common.hpp>
 
+#include <RecluseRenderApi_exports.hpp>
+
 namespace Recluse {
 namespace RenderApi {
 
@@ -36,21 +38,23 @@ public:
     virtual void*                   map(const MapRange& range) = 0;
     virtual ResultCode              unmap(const void* ptr, const MapRange& range) = 0;
     
-    virtual ResourceViewId          asView(const ResourceViewDescription& desc) = 0;
-    virtual ResourceViewId          defaultView() = 0;
+    virtual ResourceView            asView(const ResourceViewDescription& desc) = 0;
+    virtual ResourceView            defaultView() = 0;
 
     ResourceId                      getId() const { return m_id; }
 
     virtual ResourceState           getInitialResourceState() const = 0;
+    
+    RecluseRenderApi_PUBLIC_API ResourceState getResourceState() const;
 
     virtual Resource::Description   getDescription() const = 0;
 
-    ResourceViewId                  operator()(const ResourceViewDescription& desc)
+    ResourceView                  operator()(const ResourceViewDescription& desc)
     {
         return asView(desc);
     }
 
-    ResourceViewId operator()()
+    ResourceView operator()()
     {
         return defaultView();
     }

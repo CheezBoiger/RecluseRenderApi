@@ -47,7 +47,7 @@ public:
     void                        beginFrame(const FrameDescription& frame) override;
     FrameHandle                 endFrame() override;
 
-    ResultCode                  submitCommandLists(CommandQueueType type, CommandList** lists, uint numLists) override;
+    ResultCode                  onSubmitCommandLists(CommandQueueType type, CommandList** lists, uint numLists) override;
     ResultCode                  waitForFences(Fence* fences, uint numFences) override;
     ResultCode                  signalFences(Fence* fences, uint numFences) override;
     ResultCode                  waitIdle() override;
@@ -116,8 +116,8 @@ private:
 
     struct Frame
     {
-        ArenaAllocator<R_KB(4), false, 0>                              scratch;
-        ArenaAllocator<R_KB(4), false, 0>                              frameMemory;
+        ArenaAllocator<R_KB(4), false, 0>                               scratch;
+        ArenaAllocator<R_KB(4), false, 0>                               frameMemory;
         FrameStream                                                     frameStream;
         std::map<U64, ThreadContext>                                    threadContexts;
         VkFence                                                         fence;
@@ -132,7 +132,6 @@ private:
         Frame& frame;
         VkCommandBuffer commandbuffer;
         CommandPoolContext& commandPoolContext;
-        ResourceStateDatabase& resourceStateDatabase;
     };
 
     class VulkanCommandListEncoder

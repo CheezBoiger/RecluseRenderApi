@@ -78,8 +78,6 @@ public:
     VkFence                 internalCreateFence(const VkFenceCreateInfo& ci); 
     void                    internalFreeFence(VkFence fence);
 
-    ResourceStateDatabase&  getDatabase() { return m_stateDatabase; }
-
 private:
     VkDevice                m_device;
     VulkanAdapter*          m_adapter;
@@ -90,8 +88,6 @@ private:
     VkQueue                 m_graphicsQueue;
     VkQueue                 m_computeQueue;
     VkQueue                 m_copyQueue;
-
-    ResourceStateDatabase   m_stateDatabase;
 
     std::map<VkSurfaceKHR, VulkanSwapchain>         m_swapchainMap;
     std::vector<ResourceId>                         m_resourceMap;

@@ -153,7 +153,7 @@ FrameHandle VulkanFrameProcess::endFrame()
     return handle;
 }
 
-ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, CommandList** lists, uint numLists)
+ResultCode VulkanFrameProcess::onSubmitCommandLists(CommandQueueType type, CommandList** lists, uint numLists)
 {
     if (numLists == 0) return RecluseResult_Ok;
 
@@ -193,7 +193,7 @@ ResultCode VulkanFrameProcess::submitCommandLists(CommandQueueType type, Command
         VkCommandBuffer cmdBuffer = commandPoolContext.obtainCommandBuffer(device, chunk.type, chunk.instance);  
 
         VulkanCommandListEncoder encoder(device);
-        StateTracker tracker = { frame, cmdBuffer, commandPoolContext, m_device->getDatabase() };
+        StateTracker tracker = { frame, cmdBuffer, commandPoolContext };
         encoder(chunk, tracker);
 
         if (commandbufferOut)

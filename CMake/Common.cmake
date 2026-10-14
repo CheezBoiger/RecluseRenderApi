@@ -15,6 +15,8 @@ set ( RECLUSE_COMMON_SOURCE_FILES ${RECLUSE_COMMON_SOURCE_FILES}
 	${RECLUSE_SOURCE_PATH}/DeviceCreator.cpp
 	${RECLUSE_SOURCE_PATH}/CommandList.cpp
 	${RECLUSE_SOURCE_PATH}/Queue.cpp
+	${RECLUSE_SOURCE_PATH}/ResourceState.hpp
+	${RECLUSE_SOURCE_PATH}/ResourceState.cpp
 	${RECLUSE_SOURCE_PATH}/Shared/CommandOps.hpp
 	)
 	

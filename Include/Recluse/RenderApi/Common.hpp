@@ -19,15 +19,21 @@ namespace RenderApi {
 typedef U32     PipelineId;
 typedef U32     SamplerId;
 
-typedef U64     ResourceViewId;
+typedef U64     ResourceView;
 typedef UPtr    Fence;
 typedef void*   WindowHandle;
 
 class ResourceId
 {
 public:
+    typedef uint Type;
     static const uint kBadId = ~0;
-    uint value = kBadId;
+     Type value = kBadId;
+
+    bool operator==(const ResourceId& other) const { return value == other.value; }
+    bool operator!=(const ResourceId& other) const { return value != other.value; }
+    bool operator<(const ResourceId& other) const { return value < other.value; }
+    bool operator>(const ResourceId& other) const { return value > other.value; }
 };
 
 enum class Api : u32

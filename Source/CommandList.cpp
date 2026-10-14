@@ -124,13 +124,13 @@ void CommandList::bindPipeline(Pipeline* pipeline)
     m_primaryChunk.sizeBytes += CommandHeader::dataSize<BindPipelineCommand>();
 }
 
-void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRenderTargets, ResourceViewId depthStencil)
+void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderTargets, ResourceView depthStencil)
 {
     const Bool hasDepthStencil = (depthStencil != 0 ? 1 : 0);
 
     const uint dataSizeBytes = sizeof(BindRenderTargetsHeader) +
-        sizeof(ResourceViewId) * (numRenderTargets) +
-        sizeof(ResourceViewId) * hasDepthStencil;
+        sizeof(ResourceView) * (numRenderTargets) +
+        sizeof(ResourceView) * hasDepthStencil;
 
     const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes;
 
@@ -142,7 +142,7 @@ void CommandList::bindRenderTargets(ResourceViewId* renderTargets, uint numRende
     renderTargetsHeader->numRenderTargets = numRenderTargets;
     renderTargetsHeader->hasDepthStencil = hasDepthStencil;
 
-    ResourceViewId* viewId = reinterpret_cast<ResourceViewId*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
+    ResourceView* viewId = reinterpret_cast<ResourceView*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
     for (uint i = 0; i < numRenderTargets; ++i)
     {
         *viewId = renderTargets[i];
@@ -190,6 +190,8 @@ void CommandList::drawInstanced(uint vertexCount, uint instanceCount, uint baseV
 
 void CommandList::transitionResources(ResourceTransition* transitions, uint numTransitions)
 {
+    // TODO: Make database from the top level. not for native API, that handles resource transition state tracking.
+
     R_ASSERT_FORMAT(m_primaryChunk.type != CommandType::Bundle, "Bundles should not transition resources! Skipping.");
     if (m_primaryChunk.type == Bundle) return;
     if (numTransitions == 0) return;
@@ -209,8 +211,21 @@ void CommandList::transitionResources(ResourceTransition* transitions, uint numT
     for (uint i = 0; i < numTransitions; ++i)
     {
         Transition* transition = reinterpret_cast<Transition*>(offset + sizeof(Transition) * i);
+        auto it = m_localResourceStateMap.find(transitions[i].resource->getId().value);
+        if (it == m_localResourceStateMap.end())
+        {
+            LocalResourceState localState;
+            localState.initialState = ResourceState_Unknown;
+            localState.currentState = localState.initialState;
+            m_localResourceStateMap[transitions[i].resource->getId().value] = localState;
+            it = m_localResourceStateMap.find(transitions[i].resource->getId().value);
+            // Initial Transition state is unknown, so we need to store the transition in the initial transitions list.
+            m_initialTransitions.push_back((UPtr)transition);
+        }
         transition->resource = transitions[i].resource;
+        transition->oldState = it->second.currentState;
         transition->newState = transitions[i].newState;
+        it->second.currentState = transitions[i].newState;
     }
     
     m_primaryChunk.sizeBytes += sizeBytes; 
@@ -287,13 +302,21 @@ void CommandList::clearDepthStencil(ClearFlags clearFlags, F32 clearDepth, U8 cl
 
 void CommandList::reset()
 {
-    m_commandAllocator.reset();
-    m_resourceAllocator.reset();
-    m_chunks.clear();
-    m_status = CommandListStatus_Reset;
+    R_ASSERT_FORMAT(m_primaryChunk.instance != CommandInstance::Static, "Cannot reset a command list that is static!");
+    R_ASSERT_FORMAT(m_status != CommandListStatus_Recording, "Cannot reset a command list that is recording!");
 
-    m_primaryChunk.baseAddress = 0;
-    m_primaryChunk.sizeBytes = 0;
+    if (m_primaryChunk.instance == CommandInstance::Dynamic)
+    {
+        m_commandAllocator.reset();
+        m_resourceAllocator.reset();
+        m_localResourceStateMap.clear();
+        m_initialTransitions.clear();
+        m_chunks.clear();
+        m_status = CommandListStatus_Reset;
+
+        m_primaryChunk.baseAddress = 0;
+        m_primaryChunk.sizeBytes = 0;
+    }
 }
 
 
@@ -334,6 +357,17 @@ CommandList& CommandList::operator=(CommandList&& other)
         other.m_primaryChunk.sizeBytes      = 0;
     }
     return *this;
+}
+
+Bool CommandList::isInResourceState(Resource* resource, ResourceState state) const
+{
+    if (!resource) return false;
+    auto it = m_localResourceStateMap.find(resource->getId().value);
+    if (it != m_localResourceStateMap.end())
+    {
+        return state == it->second.currentState;
+    }
+    return false;
 }
 } // RenderApi
 } // Recluse

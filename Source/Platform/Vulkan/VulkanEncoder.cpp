@@ -63,30 +63,20 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                 for (uint i = 0; i < numTransitions; ++ i)
                 {
                     const Transition& transition = transitions[i];
+                    R_ASSERT_FORMAT(transition.oldState != transition.newState, "Transition states are the same! Old state: %d, New state: %d, ignoring...", transition.oldState, transition.newState);
+                    if (transition.oldState == transition.newState) continue;
+
                     VulkanResource* nativeResource = static_cast<VulkanResource*>(transition.resource);
-
-                    if (tracker.resourceStateDatabase.hasResourceState(transition.resource->getId()) == false)
-                    {
-                        tracker.resourceStateDatabase.setCurrentResourceState(transition.resource->getId(), ResourceState_Undefined);
-                    }
-
-                    const ResourceState currentState = tracker.resourceStateDatabase.queryCurrentResourceState(transition.resource->getId());
-
-                    if (currentState == transition.newState)
-                    {
-                        // No need to transition, the resource is already in the desired state.
-                        continue;
-                    }
 
                     if (nativeResource->isImage())
                     {
                         VkImage image = nativeResource->get<VkImage>();
                         VkImageMemoryBarrier memoryBarrier = { };
-                        memoryBarrier.oldLayout = getImageLayout(currentState);
+                        memoryBarrier.oldLayout = getImageLayout(transition.oldState);
                         memoryBarrier.newLayout = getImageLayout(transition.newState);
                         memoryBarrier.image = image;
                         memoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask = getDesiredResourceStateAccessMask(currentState);
+                        memoryBarrier.srcAccessMask = getDesiredResourceStateAccessMask(transition.oldState);
                         memoryBarrier.dstAccessMask = getDesiredResourceStateAccessMask(transition.newState);
                         memoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;    
                         memoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -106,7 +96,7 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
                         VkBuffer buffer = nativeResource->get<VkBuffer>();
                         VkBufferMemoryBarrier memoryBarrier = { };
                         memoryBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-                        memoryBarrier.srcAccessMask         = getDesiredResourceStateAccessMask(currentState);
+                        memoryBarrier.srcAccessMask         = getDesiredResourceStateAccessMask(transition.oldState);
                         memoryBarrier.dstAccessMask         = getDesiredResourceStateAccessMask(transition.newState);
                         memoryBarrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
                         memoryBarrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
@@ -118,9 +108,6 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
 
                         barriers[{ srcPipelineStage, dstPipelineStage }].bufferBarriers.push_back(memoryBarrier);
                     }
-
-                    // Update the resource state database with the new state.
-                    tracker.resourceStateDatabase.setCurrentResourceState(transition.resource->getId(), transition.newState);
                 }
                 break;
             }

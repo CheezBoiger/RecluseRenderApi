@@ -40,22 +40,25 @@ public:
     };
 
     // Submit command lists to the frame process, must be called while frame has begun processing.
-    virtual ResultCode                  submitCommandLists(CommandQueueType type, CommandList** lists, uint numCommandLists) = 0;
+    RecluseRenderApi_PUBLIC_API ResultCode  submitCommandLists(CommandQueueType type, CommandList** lists, uint numCommandLists);
 
     // Begins a frame to process.
-    virtual void                        beginFrame(const FrameDescription& frameDescription) = 0;
+    virtual void                            beginFrame(const FrameDescription& frameDescription) = 0;
 
     // Ends a frame, and produces a handle output that is ready to be processed. Intended to be executed in the 
     // device queue.
-    virtual FrameHandle                 endFrame() = 0;
+    virtual FrameHandle                     endFrame() = 0;
 
     // Waits for any fences in the process.
-    virtual ResultCode                  waitForFences(Fence* fences, uint numFences) = 0;
+    virtual ResultCode                      waitForFences(Fence* fences, uint numFences) = 0;
 
     // 
-    virtual ResultCode                  signalFences(Fence* fences, uint numFences) = 0;
+    virtual ResultCode                      signalFences(Fence* fences, uint numFences) = 0;
     
-    virtual ResultCode                  waitIdle() = 0;
+    virtual ResultCode                      waitIdle() = 0;
+
+protected:
+    virtual ResultCode                      onSubmitCommandLists(CommandQueueType type, CommandList** lists, uint numCommandLists) = 0;
 };
 
 // Device is the logical instance that is created by the physical device itself (the adapter.)

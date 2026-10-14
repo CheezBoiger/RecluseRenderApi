@@ -6,8 +6,11 @@
 #include <Recluse/RenderApi/Common.hpp>
 #include <Recluse/Types.hpp>
 #include <Recluse/Memory/MemoryArena.hpp>
+#include <Recluse/RenderApi/Resource.hpp>
 
 #include <RecluseRenderApi_exports.hpp>
+
+#include <unordered_map>
 
 namespace Recluse {
 namespace RenderApi {
@@ -15,6 +18,7 @@ namespace RenderApi {
 class Device;
 class Pipeline;
 class Resource;
+class FrameProcess;
 
 enum CommandInstance : u8 
 { 
@@ -41,6 +45,12 @@ enum CommandListStatus
     CommandListStatus_Recording = CommandListStatus_Pending,
     CommandlistStatus_Closed,
     CommandListStatus_Ready = CommandlistStatus_Closed,
+};
+
+struct LocalResourceState
+{
+    ResourceState initialState;
+    ResourceState currentState;
 };
 
 // Chunk defines the base and size of a chunk of commands.
@@ -98,7 +108,7 @@ public:
     void dispatch(U32 x, U32 y, U32 z);
 
     // Bind render targets to the command list. This will bind the render targets to the command list, and will also bind the depth stencil if provided.
-    void bindRenderTargets(ResourceViewId* renderTargets, U32 numRenderTargets, ResourceViewId depthStencil = 0);
+    void bindRenderTargets(ResourceView* renderTargets, U32 numRenderTargets, ResourceView depthStencil = 0);
 
     // Begin a render pass. This will begin a render pass, and will also bind the render targets and depth stencil if provided.
     void beginRenderPass();
@@ -110,7 +120,7 @@ public:
 
     void executeBundles(CommandList** bundles, U32 numBundles);
 
-    ResourceViewId allocateConstantBuffer(void* constBufData, U32 size);
+    ResourceView allocateConstantBuffer(void* constBufData, U32 size);
     
     // Allocate a resource table for the command list. This is a table of resources that can be bound to the command list.
     // The allocation is temporary, and will be freed when the command list is reset. The resource table is used to bind resources to the command list.
@@ -147,16 +157,24 @@ public:
 
     CommandListStatus getStatus() const { return m_status; }
 
+    // Check if the resource is in the specified state.
+    Bool isInResourceState(Resource* resource, ResourceState state) const;
+
 private:
+    friend class FrameProcess;
+
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
     // to reduce these calls. (batching would be highly beneficial.)
     LinearAllocator m_commandAllocator;
+    std::vector<UPtr> m_initialTransitions; // Barrier addresses for resource transitions. This is used to track the addresses of the barriers that have been recorded in the command list.
 
     // Resource allocator for managing resources within the command list. This is static, for any resizing
     // we will need to reallocate the resource allocator as well. (Any existing handles
     // will be invalidated if it resizes.)
     LinearAllocator m_resourceAllocator;
+
+    std::unordered_map<uint, LocalResourceState> m_localResourceStateMap;
 
     CommandStreamChunk m_primaryChunk;  // Primary chunk of the command list. This is the main chunk that holds all commands.
 

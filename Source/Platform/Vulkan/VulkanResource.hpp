@@ -53,8 +53,8 @@ public:
     
     virtual                                 ~VulkanResource();
 
-    ResourceViewId                          asView(const ResourceViewDescription& description) override;
-    ResourceViewId                          defaultView() override;
+    ResourceView                           asView(const ResourceViewDescription& description) override;
+    ResourceView                           defaultView() override;
 
     void*                                   map(const MapRange& range) override;
     ResultCode                              unmap(const void* ptr, const MapRange& range) override;
@@ -79,38 +79,10 @@ public:
     
     void                                    setInitialResourceState(ResourceState state) { m_initialResourceState = state; }
 private:
-    std::unordered_map<ResourceViewId, VulkanResourceView>  m_views;
+    std::unordered_map<ResourceView, VulkanResourceView>    m_views;
     Type                                                    m_type;
     ResourceHandle                                          m_handle;
     ResourceState                                           m_initialResourceState;
-};
-
-class ResourceStateDatabase
-{
-public:
-    ResourceStateDatabase() { }
-    ResourceStateDatabase(const ResourceStateDatabase&) = delete;
-    ResourceStateDatabase& operator=(const ResourceStateDatabase&) = delete;
-
-    ResourceStateDatabase(ResourceStateDatabase&& other)
-        : m_resourceMutex(std::move(other.m_resourceMutex))
-        , m_currentResourceStates(std::move(other.m_currentResourceStates))
-    {
-    }
-
-    ResourceStateDatabase& operator=(ResourceStateDatabase&& other)
-    {
-        m_resourceMutex = std::move(other.m_resourceMutex);
-        m_currentResourceStates = std::move(other.m_currentResourceStates);
-        return *this;
-    }
-
-    ResourceState   queryCurrentResourceState(ResourceId id);
-    void            setCurrentResourceState(ResourceId id, ResourceState state);
-    Bool            hasResourceState(ResourceId id);
-private:
-    MutexGuard                              m_resourceMutex;
-    std::unordered_map<uint, ResourceState> m_currentResourceStates;
 };
 } // Vulkan
 } // RenderApi
