@@ -177,7 +177,7 @@ void VulkanSwapchain::release()
     m_swapchain = VK_NULL_HANDLE;
 }
 
-ResultCode VulkanSwapchain::rebuild(const Swapchain::Description& description)
+ResultCode VulkanSwapchain::onRebuild(const Swapchain::Description& description)
 {
     VkSurfaceCapabilitiesKHR capabilities = { };
     VkResult result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_physicalDevice, m_surface, &capabilities);
@@ -289,6 +289,11 @@ VulkanResource& VulkanSwapchain::getNativeResource(ResourceId id)
 {
     R_ASSERT(id.value != ResourceId::kBadId);
     return m_imageResources[id.value];
+}
+
+Resource* VulkanSwapchain::backBuffer(uint idx)
+{
+    return &m_imageResources[idx];
 }
 } // Vulkan
 } // RenderApi 

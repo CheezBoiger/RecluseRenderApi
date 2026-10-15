@@ -20,8 +20,9 @@ public:
     VulkanSwapchain(VulkanDevice* device = nullptr, VkSurfaceKHR surface = VK_NULL_HANDLE, const Swapchain::Description& swapchainDescription = { });
     virtual ~VulkanSwapchain();
 
-    ResultCode                  rebuild(const Swapchain::Description& description) override;
+    ResultCode                  onRebuild(const Swapchain::Description& description) override;
     Resource*                   currentBackbuffer() override;
+    Resource*                   backBuffer(uint idx) override;
     Swapchain::Description      getDescription() override;
 
     // Initialize the swapchain.

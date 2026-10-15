@@ -8,6 +8,8 @@
 #include <Recluse/RenderApi/Common.hpp>
 #include <Recluse/RenderApi/Queue.hpp>
 
+#include <RecluseRenderApi_exports.hpp>
+
 namespace Recluse {
 namespace RenderApi {
 
@@ -38,10 +40,14 @@ public:
         PresentMode         presentMode;
     };
 
-    virtual ResultCode                  rebuild(const Description& description) = 0;
+    RecluseFramework_PUBLIC_API ResultCode                          rebuild(const Description& description);
     // Get the current backbuffer.
     virtual Resource*                   currentBackbuffer() = 0;
+    virtual Resource*                   backBuffer(uint index) = 0;
     virtual Description                 getDescription() = 0;
+
+protected:
+    virtual ResultCode                  onRebuild(const Description& description) = 0;
 };
 } // RenderApi
 } // Recluse
