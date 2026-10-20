@@ -195,6 +195,7 @@ void CommandList::transitionResources(ResourceTransition* transitions, uint numT
     R_ASSERT_FORMAT(m_primaryChunk.type != CommandType::Bundle, "Bundles should not transition resources! Skipping.");
     if (m_primaryChunk.type == Bundle) return;
     if (numTransitions == 0) return;
+
     const uint dataSizeBytes = sizeof(BarrierTransitionHeader) + sizeof(Transition) * numTransitions;
     const uint sizeBytes = sizeof(CommandHeader) + 
         dataSizeBytes;
