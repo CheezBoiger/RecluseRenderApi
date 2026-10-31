@@ -293,6 +293,8 @@ VulkanResource& VulkanSwapchain::getNativeResource(ResourceId id)
 
 Resource* VulkanSwapchain::backBuffer(uint idx)
 {
+    R_ASSERT(idx < m_description.numFrames);
+    if (idx >= m_description.numFrames) return nullptr;
     return &m_imageResources[idx];
 }
 } // Vulkan

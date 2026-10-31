@@ -4,6 +4,7 @@
 #pragma once
 
 #include "VulkanCommon.hpp"
+#include "VulkanAllocator.hpp"
 
 #include <Recluse/RenderApi/Resource.hpp>
 #include <Recluse/Threading/Threading.hpp>
@@ -37,18 +38,21 @@ public:
         : Resource(id)
         , m_type(None)
         , m_initialResourceState(ResourceState_Unknown)
+        , m_memoryAllocation({})
         , m_handle(nullptr) { }
 
     VulkanResource(VkBuffer buffer, ResourceId id = { }) 
         : Resource(id)
         , m_type(Buffer)
         , m_initialResourceState(ResourceState_Unknown)
+        , m_memoryAllocation({})
         , m_handle(reinterpret_cast<ResourceHandle>(buffer)) { }
 
     VulkanResource(VkImage image, ResourceId id = { })
         : Resource(id) 
         , m_type(Image)
         , m_initialResourceState(ResourceState_Unknown)
+        , m_memoryAllocation({})
         , m_handle(reinterpret_cast<ResourceHandle>(image)) { }
     
     virtual                                 ~VulkanResource();
@@ -65,6 +69,7 @@ public:
     Bool                                    isBuffer() const { return (m_type == Buffer); }
     Bool                                    isImage() const { return (m_type == Image); }
     Bool                                    isValid() const { return (m_handle != nullptr); }
+    const Allocation&                       getMemory() const { return m_memoryAllocation; }
     
     template<typename VulkanResourceType>
     VulkanResourceType                      get() { return reinterpret_cast<VulkanResourceType>(m_handle); }
@@ -83,6 +88,7 @@ private:
     Type                                                    m_type;
     ResourceHandle                                          m_handle;
     ResourceState                                           m_initialResourceState;
+    Allocation                                              m_memoryAllocation;
 };
 } // Vulkan
 } // RenderApi

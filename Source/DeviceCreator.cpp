@@ -12,6 +12,11 @@
 #include <vector>
 #include <set>
 
+#define R_DLL_NAME ".dll"
+#define R_VULKAN_DLL_NAME "RecluseVulkan"
+#define R_D3D12_DLL_NAME "RecluseD3D12"
+#define CONCAT(STR1, STR2) STR1 STR2
+
 namespace Recluse {
 namespace RenderApi {
 
@@ -45,10 +50,10 @@ Context* Context::create(Api api, const Description& description)
             libContext.loader.load("RecluseRenderApiD3D11.dll");
             break;
         case Api::Direct3D12:
-            libContext.loader.load("RecluseRenderApiD3D12.dll");
+            libContext.loader.load(CONCAT(R_D3D12_DLL_NAME, R_DLL_NAME));
             break;
         case Api::Vulkan:
-            libContext.loader.load("RecluseVulkan.dll");
+            libContext.loader.load(CONCAT(R_VULKAN_DLL_NAME, R_DLL_NAME));
             break;
         case Api::OpenGL:
             libContext.loader.load("RecluseRenderApiOpenGL.dll");

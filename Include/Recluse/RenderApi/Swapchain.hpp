@@ -43,6 +43,8 @@ public:
     RecluseFramework_PUBLIC_API ResultCode                          rebuild(const Description& description);
     // Get the current backbuffer.
     virtual Resource*                   currentBackbuffer() = 0;
+
+    // Index a back buffer.
     virtual Resource*                   backBuffer(uint index) = 0;
     virtual Description                 getDescription() = 0;
 

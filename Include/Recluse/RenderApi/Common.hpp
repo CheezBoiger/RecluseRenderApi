@@ -115,6 +115,9 @@ enum ResourceMemoryUsage
     ResourceMemoryUsage_Staging,
     // Readback is memory that is readable by the CPU. Typically used for resources that are transferring data from GPU to CPU.
     ResourceMemoryUsage_Readback,
+
+    // Not to be used by application
+    ResourceMemoryUsage_Count,
 };
 
 enum ResourceUsage

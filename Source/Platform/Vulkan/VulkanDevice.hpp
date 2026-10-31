@@ -6,6 +6,7 @@
 #include "VulkanCommon.hpp"
 #include "VulkanSwapchain.hpp"
 #include "VulkanResource.hpp"
+#include "VulkanAllocator.hpp"
 
 #include <Recluse/RenderApi/Adapter.hpp>
 #include <Recluse/RenderApi/Device.hpp>
