@@ -87,7 +87,7 @@ FrameHandle VulkanFrameProcess::endFrame()
             UPtr data                       = *reinterpret_cast<UPtr*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType));
             VkSemaphore* waitSemaphorePtr   = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
                                                 sizeof(VkPipelineStageFlags) * commandBufferCount);
-            waitSemaphorePtr[0]             = frame.frameSemaphore;
+            waitSemaphorePtr[*waitSemaphoreCount] = frame.frameSemaphore;
             *waitSemaphoreCount             += 1;
         }
     }
@@ -111,7 +111,7 @@ FrameHandle VulkanFrameProcess::endFrame()
                                                     sizeof(VkPipelineStageFlags) * commandBufferCount);
             VkSemaphore* signalSemaphorePtr     = reinterpret_cast<VkSemaphore*>(data + sizeof(VkCommandBuffer) * commandBufferCount + 
                                                     sizeof(VkPipelineStageFlags) * commandBufferCount + sizeof(VkSemaphore) * kNumMaxWaitSemaphores);
-            signalSemaphorePtr[0]               = m_swapchainRef->currentSignalSemaphore();
+            signalSemaphorePtr[*numSignalSemaphores] = m_swapchainRef->currentSignalSemaphore();
             *numSignalSemaphores                += 1;
         }
 
