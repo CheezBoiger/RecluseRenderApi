@@ -77,7 +77,8 @@ FrameHandle VulkanFrameProcess::endFrame()
     if (addr < endAddr)
     {
         // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
-        VkFence* fence  = reinterpret_cast<VkFence*>(addr + sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr));
+        SequentialBufferReader reader(addr);
+        VkFence* fence  = reader.consume<VkFence>(1, sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr));
         *fence          = frame.fence;
 
         if (m_swapchainRef)
@@ -118,20 +119,15 @@ FrameHandle VulkanFrameProcess::endFrame()
         const uint submitSizeBytes  = sizeof(SubmitType) + sizeof(VkPresentInfoKHR);
         const uint scratchSizeBytes = sizeof(VkSwapchainKHR) + sizeof(uint) + sizeof(VkSemaphore);
 
-        UPtr present                = (UPtr)frame.frameMemory.allocateRaw(submitSizeBytes);
-        SubmitType* submitType      = (SubmitType*)present;
-        *submitType                 = SubmitType_Present;
-        VkPresentInfoKHR* info      = (VkPresentInfoKHR*)(present + sizeof(SubmitType));
+        PacketBuilder builder(frame.frameMemory.allocateRaw(submitSizeBytes));
+        builder.write<SubmitType>(SubmitType_Present);
+        VkPresentInfoKHR* info      = builder.write<VkPresentInfoKHR>();
 
-        UPtr scratchAddress         = (UPtr)frame.scratch.allocateRaw(scratchSizeBytes);
-        VkSwapchainKHR* swapchain   = (VkSwapchainKHR*)scratchAddress;
-        *swapchain                  = m_swapchainRef->get();
-        uint* imageIndex            = (uint*)(scratchAddress + sizeof(VkSwapchainKHR));
-        *imageIndex                 = m_swapchainRef->currentImageIndex();
-        VkSemaphore* semaphore      = (VkSemaphore*)(scratchAddress + sizeof(VkSwapchainKHR) + sizeof(uint));
-        *semaphore                  = m_swapchainRef->currentSignalSemaphore();
+        PacketBuilder swapchainBuilder(frame.scratch.allocateRaw(scratchSizeBytes));
+        VkSwapchainKHR* swapchain   = swapchainBuilder.write<VkSwapchainKHR>(m_swapchainRef->get());
+        uint* imageIndex            = swapchainBuilder.write<uint>(m_swapchainRef->currentImageIndex());
+        VkSemaphore* semaphore      = swapchainBuilder.write<VkSemaphore>(m_swapchainRef->currentSignalSemaphore());
     
-        *info                       = { };
         info->sType                 = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
         info->pImageIndices         = imageIndex;
         info->swapchainCount        = 1;
