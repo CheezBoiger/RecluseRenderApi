@@ -68,7 +68,7 @@ private:
     VkDeviceMemory              m_memoryHandle;
     VkDeviceSize                m_totalMemory;
     uint32_t                    m_memoryTypeIndex;
-    Allocator<BuddyStrategy>    m_allocator;
+    allocator_t<BuddyStrategy>  m_allocator;
 };
 
 class AllocatorHandler

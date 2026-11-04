@@ -78,7 +78,7 @@ FrameHandle VulkanFrameProcess::endFrame()
     {
         // TODO: We should definitely make structures for these, as the pointer logic is atrocious.
         SequentialBufferReader reader(addr);
-        VkFence* fence  = reader.consume<VkFence>(1, sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr));
+        VkFence* fence  = reader.consume<VkFence>(1, sizeof(SubmitType) + sizeof(uint) * 3 + sizeof(CommandQueueType) + sizeof(UPtr));;
         *fence          = frame.fence;
 
         if (m_swapchainRef)
@@ -119,11 +119,11 @@ FrameHandle VulkanFrameProcess::endFrame()
         const uint submitSizeBytes  = sizeof(SubmitType) + sizeof(VkPresentInfoKHR);
         const uint scratchSizeBytes = sizeof(VkSwapchainKHR) + sizeof(uint) + sizeof(VkSemaphore);
 
-        PacketBuilder builder(frame.frameMemory.allocateRaw(submitSizeBytes));
+        PacketBuilder builder(frame.frameMemory.allocate(submitSizeBytes));
         builder.write<SubmitType>(SubmitType_Present);
         VkPresentInfoKHR* info      = builder.write<VkPresentInfoKHR>();
 
-        PacketBuilder swapchainBuilder(frame.scratch.allocateRaw(scratchSizeBytes));
+        PacketBuilder swapchainBuilder(frame.scratch.allocate(scratchSizeBytes));
         VkSwapchainKHR* swapchain   = swapchainBuilder.write<VkSwapchainKHR>(m_swapchainRef->get());
         uint* imageIndex            = swapchainBuilder.write<uint>(m_swapchainRef->currentImageIndex());
         VkSemaphore* semaphore      = swapchainBuilder.write<VkSemaphore>(m_swapchainRef->currentSignalSemaphore());
@@ -179,7 +179,7 @@ ResultCode VulkanFrameProcess::onSubmitCommandLists(CommandQueueType type, Comma
 
     // scratch data allocation.
 
-    PacketBuilder dataPacket(frame.scratch.allocateRaw(scratchSizeBytes));
+    PacketBuilder dataPacket(frame.scratch.allocate(scratchSizeBytes));
     UPtr startDataAddress = dataPacket.raw();
 
     auto func = [&] (Frame& frame, uint familyIndex, VkCommandBuffer* commandbufferOut, CommandStreamChunk chunk) -> void {
@@ -230,7 +230,7 @@ ResultCode VulkanFrameProcess::onSubmitCommandLists(CommandQueueType type, Comma
             dataPacket.write<VkPipelineStageFlags>(VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     }
 
-    PacketBuilder packet(frame.frameMemory.allocateRaw(submitBytes));
+    PacketBuilder packet(frame.frameMemory.allocate(submitBytes));
 
     SubmitType* submitType          = packet.write(SubmitType_CommandBuffers);
     uint* submitNumCommandLists     = packet.write(numLists);

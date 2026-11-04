@@ -27,11 +27,11 @@ CommandList::CommandList(MemoryArena& arena)
     m_id = getId();
     const U64 commandSizeBytes = R_MB(8);
     const U64 resourceSizebytes = R_MB(8);
-    UPtr ptr = (UPtr)m_arena.allocateRaw(commandSizeBytes);
+    UPtr ptr = (UPtr)m_arena.allocate(commandSizeBytes);
     R_ASSERT_FORMAT(ptr != 0, "Failed to allocate command memory for command list.");
     m_commandAllocator.initialize(ptr, commandSizeBytes);
 
-    ptr = (UPtr)m_arena.allocateRaw(resourceSizebytes);
+    ptr = (UPtr)m_arena.allocate(resourceSizebytes);
     R_ASSERT_FORMAT(ptr != 0, "Failed to allocate resource memory for command list.");
     m_resourceAllocator.initialize(ptr, resourceSizebytes);
 }
