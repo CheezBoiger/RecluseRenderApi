@@ -166,11 +166,11 @@ static std::vector<const char*> enumerateAndCheckExtensions(const Context::Descr
     return extensionOptions;
 }
 
-VulkanContext::VulkanContext(const Description& description)
+VulkanContext::VulkanContext(const Description& description, uint apiVersion)
     : Context(Api::Vulkan, ++kContextCounter)
     , m_instance(VK_NULL_HANDLE)
     , m_totalPhysicalDevices(0)
-    , m_vulkanApiVersion(R_VULKAN_DEFAULT_VERSION())
+    , m_vulkanApiVersion(apiVersion)
     , pfnCreateDebugUtilsMessengerEXT(VK_NULL_HANDLE)
     , pfnDestroyDebugUtilsMessengerEXT(VK_NULL_HANDLE)
     , m_debugMessenger(VK_NULL_HANDLE)
@@ -186,7 +186,8 @@ VulkanContext::VulkanContext(const Description& description)
             VK_VERSION_MINOR(maxVulkanVersion));
         m_vulkanApiVersion = maxVulkanVersion;
     }
-
+    R_INFO("Vulkan", "Using Vulkan version %d_%d_%d.", 
+        VK_VERSION_MAJOR(m_vulkanApiVersion), VK_VERSION_MINOR(m_vulkanApiVersion), VK_VERSION_PATCH(m_vulkanApiVersion));
     initialize(description);
 }
 

@@ -10,7 +10,9 @@ std::map<Recluse::uint, Recluse::RenderApi::Vulkan::VulkanContext*> g_contextMap
 
 Recluse::RenderApi::Context* createContext(const Recluse::RenderApi::Context::Description& description)
 {
-    Recluse::RenderApi::Vulkan::VulkanContext* ctx = new Recluse::RenderApi::Vulkan::VulkanContext(description);
+    Recluse::RenderApi::Vulkan::VulkanContext* ctx = new Recluse::RenderApi::Vulkan::VulkanContext(description, 
+        VK_API_VERSION_1_2);
+
     auto it = g_contextMap.find(ctx->getId());
     R_ASSERT(it == g_contextMap.end());
     

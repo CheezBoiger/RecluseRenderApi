@@ -19,21 +19,19 @@ static CommandList::Id getId()
     return kIdCounter++;
 }
 
-CommandList::CommandList(MemoryArena& arena)
+CommandList::CommandList(MemoryArena& arena, size_t listSizeBytes, size_t resourceSizeBytes)
     : m_id(kBadId)
     , m_status(CommandListStatus_Reset)
     , m_arena(arena)
 {
     m_id = getId();
-    const U64 commandSizeBytes = R_MB(8);
-    const U64 resourceSizebytes = R_MB(8);
-    UPtr ptr = (UPtr)m_arena.allocate(commandSizeBytes);
+    UPtr ptr = (UPtr)m_arena.allocate(listSizeBytes);
     R_ASSERT_FORMAT(ptr != 0, "Failed to allocate command memory for command list.");
-    m_commandAllocator.initialize(ptr, commandSizeBytes);
+    m_commandAllocator.initialize(ptr, listSizeBytes);
 
-    ptr = (UPtr)m_arena.allocate(resourceSizebytes);
+    ptr = (UPtr)m_arena.allocate(resourceSizeBytes);
     R_ASSERT_FORMAT(ptr != 0, "Failed to allocate resource memory for command list.");
-    m_resourceAllocator.initialize(ptr, resourceSizebytes);
+    m_resourceAllocator.initialize(ptr, resourceSizeBytes);
 }
 
 void CommandList::begin(const CommandList::BeginDescription& beginDescription)

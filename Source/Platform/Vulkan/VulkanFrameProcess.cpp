@@ -42,14 +42,14 @@ void VulkanFrameProcess::beginFrame(const FrameDescription& frameDescription)
     }
 }
 
-void VulkanFrameProcess::CommandPoolContext::reset(VkDevice device)
+void CommandPoolContext::reset(VkDevice device)
 {
     R_ASSERT(device != VK_NULL_HANDLE);
     primary.reset(device);
     secondary.reset(device);
 }
 
-void VulkanFrameProcess::Frame::reset(VkDevice device)
+void Frame::reset(VkDevice device)
 {
     frameStream.baseAddress = frameMemory.getBaseAddress();
     frameStream.sizeBytes   = 0;
@@ -290,13 +290,13 @@ void VulkanFrameProcess::release()
     }
 }
 
-void VulkanFrameProcess::CommandPoolContext::initialize(VkDevice device, uint familyIndex)
+void CommandPoolContext::initialize(VkDevice device, uint familyIndex)
 {
     primary.initialize(device, VK_COMMAND_BUFFER_LEVEL_PRIMARY, familyIndex);
     secondary.initialize(device, VK_COMMAND_BUFFER_LEVEL_SECONDARY, familyIndex);
 }
 
-void VulkanFrameProcess::CommandPoolContext::CommandPool::initialize(VkDevice device, VkCommandBufferLevel level, uint familyIndex)
+void CommandPoolContext::CommandPool::initialize(VkDevice device, VkCommandBufferLevel level, uint familyIndex)
 {
     VkCommandPoolCreateInfo commandPoolCi = { };
     commandPoolCi.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -313,7 +313,7 @@ void VulkanFrameProcess::CommandPoolContext::CommandPool::initialize(VkDevice de
 
 }
 
-void VulkanFrameProcess::CommandPoolContext::CommandPool::release(VkDevice device)
+void CommandPoolContext::CommandPool::release(VkDevice device)
 {
     if (!device) return;
     if (!commandbuffers.empty())
@@ -335,7 +335,7 @@ void VulkanFrameProcess::CommandPoolContext::CommandPool::release(VkDevice devic
         vkDestroyCommandPool(device, pool[i], nullptr);
 }
 
-void VulkanFrameProcess::CommandPoolContext::release(VkDevice device)
+void CommandPoolContext::release(VkDevice device)
 {
     if (!device) return;
     primary.release(device);
@@ -392,7 +392,7 @@ ResultCode VulkanFrameProcess::signalFences(Fence* fences, uint numFences)
     return RecluseResult_NoImpl;
 }
 
-VkCommandBuffer* VulkanFrameProcess::CommandPoolContext::obtainCommandBuffers(VkDevice device, CommandType type, CommandInstance instance, uint numBuffers)
+VkCommandBuffer* CommandPoolContext::obtainCommandBuffers(VkDevice device, CommandType type, CommandInstance instance, uint numBuffers)
 {
     VkCommandBuffer* result = nullptr;
     if (type == CommandType::Primary)
@@ -412,7 +412,7 @@ VkCommandBuffer* VulkanFrameProcess::CommandPoolContext::obtainCommandBuffers(Vk
     return result;
 }
 
-VkCommandBuffer* VulkanFrameProcess::CommandPoolContext::CommandPool::obtainCommandBuffers(VkDevice device, uint numRequested, uint numOverflowCount)
+VkCommandBuffer* CommandPoolContext::CommandPool::obtainCommandBuffers(VkDevice device, uint numRequested, uint numOverflowCount)
 {
     VkResult result = VK_SUCCESS;
     if (numRequested == 0) return nullptr;
@@ -441,7 +441,7 @@ VkCommandBuffer* VulkanFrameProcess::CommandPoolContext::CommandPool::obtainComm
     return buffers;
 }
 
-VkCommandBuffer VulkanFrameProcess::CommandPoolContext::obtainCommandBuffer(VkDevice device, CommandType type, CommandInstance instance)
+VkCommandBuffer CommandPoolContext::obtainCommandBuffer(VkDevice device, CommandType type, CommandInstance instance)
 {
     VkCommandBuffer cmdBuffer = nullptr;
     VkCommandBuffer* result = obtainCommandBuffers(device, type, instance, 1);
@@ -450,7 +450,7 @@ VkCommandBuffer VulkanFrameProcess::CommandPoolContext::obtainCommandBuffer(VkDe
     return cmdBuffer;
 }
 
-VkCommandBuffer VulkanFrameProcess::CommandPoolContext::CommandPool::obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id)
+VkCommandBuffer CommandPoolContext::CommandPool::obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id)
 {
     auto it = persistentCommandBuffers.find(id);
     if (it == persistentCommandBuffers.end())
@@ -472,7 +472,7 @@ VkCommandBuffer VulkanFrameProcess::CommandPoolContext::CommandPool::obtainPersi
     return it->second;
 }
 
-void VulkanFrameProcess::CommandPoolContext::CommandPool::reset(VkDevice device)
+void CommandPoolContext::CommandPool::reset(VkDevice device)
 {
     currentCbIndex = 0;
 
@@ -480,7 +480,7 @@ void VulkanFrameProcess::CommandPoolContext::CommandPool::reset(VkDevice device)
     R_ASSERT(result == VK_SUCCESS);
 }
 
-void VulkanFrameProcess::ThreadContext::initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices)
+void ThreadContext::initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices)
 {
     auto createPoolFn = [&](uint familyIndex) -> void {
         if (familyIndex == VulkanDevice::QueueProperties::kBadIndex)
@@ -499,7 +499,7 @@ void VulkanFrameProcess::ThreadContext::initialize(VkDevice device, const Vulkan
     createPoolFn(queueIndices.copy.familyIndex);
 }
 
-void VulkanFrameProcess::ThreadContext::release(VkDevice device)
+void ThreadContext::release(VkDevice device)
 {
     for (auto& it : commandPools)
     {

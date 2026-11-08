@@ -5,11 +5,19 @@
 
 #include <Shared/CommandOps.hpp>
 
+#include <array>
+
 namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
-VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, StateTracker& tracker)
+typedef void (*CommandEncodeFn)(VulkanCommandListEncoder&, const CommandStreamChunk&, StateTracker&);
+
+std::array<CommandEncodeFn, CommandOpcode_Count> kInstructionTable = {
+    nullptr
+};
+
+VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, StateTracker& tracker)
 {
     UPtr address = chunk.baseAddress;
     const UPtr endAddress = chunk.baseAddress + chunk.sizeBytes;
@@ -139,6 +147,17 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
             {
                 break;
             }
+            case CommandOpcode_BindRenderTargets:
+            {
+                BindRenderTargetsHeader* renderTargetsHeader = (BindRenderTargetsHeader*)(address + sizeof(CommandHeader));
+
+                VkRenderingInfo renderingInfo = { };
+                renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+                renderingInfo.colorAttachmentCount = renderTargetsHeader->numRenderTargets;
+
+                vkCmdBeginRendering(tracker.commandbuffer, &renderingInfo);
+                break;
+            }
             default:
                 break;
         }
@@ -149,7 +168,7 @@ VkResult VulkanFrameProcess::VulkanCommandListEncoder::encode(const CommandStrea
     return VK_SUCCESS;
 }
 
-void VulkanFrameProcess::VulkanCommandListEncoder::flushBarriers(StateTracker& tracker)
+void VulkanCommandListEncoder::flushBarriers(StateTracker& tracker)
 {
     for (auto& it : barriers)
     {

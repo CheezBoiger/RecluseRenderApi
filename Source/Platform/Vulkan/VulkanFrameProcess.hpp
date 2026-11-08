@@ -21,6 +21,131 @@ namespace Vulkan {
 
 class VulkanSwapchain;
 
+struct CommandPoolContext
+{
+    struct CommandPool
+    {
+        enum PoolType {
+            PoolType_Dynamic,
+            PoolType_Persistent,
+            PoolType_Count,
+        };
+
+        VkCommandPool                   pool[PoolType_Count];
+        std::unordered_map<CommandList::Id, VkCommandBuffer> persistentCommandBuffers;
+        std::vector<VkCommandBuffer> commandbuffers;
+        uint currentCbIndex;
+        VkCommandBufferLevel level;
+
+        void                        initialize(VkDevice device, VkCommandBufferLevel level, uint familyIndex);
+        void                        reset(VkDevice device);
+        void                        release(VkDevice device);
+        VkCommandBuffer*            obtainCommandBuffers(VkDevice device, 
+                                            uint numRequested, uint numOverflowCount);
+        VkCommandBuffer             obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id);
+            
+    };
+
+    CommandPool            primary;
+    CommandPool            secondary;
+
+
+    void initialize(VkDevice device, uint familyIndex);
+    void release(VkDevice device);
+    void reset(VkDevice device);
+
+    VkCommandBuffer                 obtainCommandBuffer(VkDevice device, 
+                                        CommandType type, CommandInstance instance);
+    VkCommandBuffer*                obtainCommandBuffers(VkDevice device, 
+                                        CommandType type, CommandInstance instance, uint numBuffers);
+        
+private:
+};
+
+struct ThreadContext
+{
+    std::map<VulkanDevice::QueueProperties::Index, CommandPoolContext> commandPools;
+    void initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices);
+    void release(VkDevice device);
+};
+
+struct FrameStream
+{
+    UPtr baseAddress;
+    uint sizeBytes;
+};
+
+struct Frame
+{
+    ArenaAllocator<R_KB(4), false, 0>                               scratch;
+    ArenaAllocator<R_KB(4), false, 0>                               frameMemory;
+    FrameStream                                                     frameStream;
+    std::map<U64, ThreadContext>                                    threadContexts;
+    VkFence                                                         fence;
+    VkSemaphore                                                     frameSemaphore;
+    MutexGuard                                                      secondaryCommandBufferMutex;
+    std::map<CommandList::Id, VkCommandBuffer>                      secondaryCommandBufferMap;
+    void                                                            reset(VkDevice device);
+};
+
+struct StateTracker
+{
+    Frame& frame;
+    VkCommandBuffer commandbuffer;
+    CommandPoolContext& commandPoolContext;
+};
+
+class VulkanCommandListEncoder
+{
+public:
+    VulkanCommandListEncoder(VkDevice device) 
+        : m_device(device) { }
+    VkResult encode(const CommandStreamChunk& chunk, StateTracker& tracker);
+    VkResult operator()(const CommandStreamChunk& chunk, StateTracker& tracker) { return encode(chunk, tracker); }
+private:
+    void flushBarriers(StateTracker& tracker);
+
+    VkDevice m_device;
+
+    struct PipelineStage
+    {
+        VkPipelineStageFlags srcStageFlags;
+        VkPipelineStageFlags dstStageFlags;
+            
+        bool operator==(const PipelineStage& stage) const 
+        {
+            return (srcStageFlags == stage.srcStageFlags) && (dstStageFlags == stage.dstStageFlags);
+        }
+        
+        bool operator!=(const PipelineStage& stage) const
+        {
+            return !(*this == stage);
+        }
+
+        bool operator()(const PipelineStage& stage) const 
+        {
+            return (*this == stage);
+        }
+    };
+
+    struct PipelineStageHasher
+    {
+        size_t operator()(const PipelineStage& key) const {
+            return ((std::hash<uint32_t>()(key.srcStageFlags) ^ (std::hash<uint32_t>()(key.srcStageFlags) << 1)) >> 1);
+        }
+    };
+
+    struct Barriers
+    {
+        std::vector<VkImageMemoryBarrier> imageBarriers;
+        std::vector<VkBufferMemoryBarrier> bufferBarriers;
+
+        Barriers() : imageBarriers(), bufferBarriers() { }
+    };
+
+    std::unordered_map<PipelineStage, Barriers, PipelineStageHasher>   barriers;
+};
+
 class VulkanFrameProcess : public FrameProcess
 {
     class CommandPool;
@@ -28,12 +153,6 @@ public:
     static const uint kNumMaxSignalSemaphores   = 1;
     static const uint kNumMaxWaitSemaphores     = 1;
     static const uint kNumMaxSignalFences       = 1;
-    
-    struct FrameStream
-    {
-        UPtr baseAddress;
-        uint sizeBytes;
-    };
 
     enum SubmitType 
     {
@@ -65,125 +184,6 @@ private:
 
     void initialize();
     uint queryFamilyIndex(CommandQueueType type);
-
-    struct CommandPoolContext
-    {
-        struct CommandPool
-        {
-            enum PoolType {
-                PoolType_Dynamic,
-                PoolType_Persistent,
-                PoolType_Count,
-            };
-
-            VkCommandPool                   pool[PoolType_Count];
-            std::unordered_map<CommandList::Id, VkCommandBuffer> persistentCommandBuffers;
-            std::vector<VkCommandBuffer> commandbuffers;
-            uint currentCbIndex;
-            VkCommandBufferLevel level;
-
-            void                        initialize(VkDevice device, VkCommandBufferLevel level, uint familyIndex);
-            void                        reset(VkDevice device);
-            void                        release(VkDevice device);
-            VkCommandBuffer*            obtainCommandBuffers(VkDevice device, 
-                                                uint numRequested, uint numOverflowCount);
-            VkCommandBuffer             obtainPersistentCommandBuffer(VkDevice device, CommandList::Id id);
-            
-        };
-
-        CommandPool            primary;
-        CommandPool            secondary;
-
-
-        void initialize(VkDevice device, uint familyIndex);
-        void release(VkDevice device);
-        void reset(VkDevice device);
-
-        VkCommandBuffer                 obtainCommandBuffer(VkDevice device, 
-                                            CommandType type, CommandInstance instance);
-        VkCommandBuffer*                obtainCommandBuffers(VkDevice device, 
-                                            CommandType type, CommandInstance instance, uint numBuffers);
-        
-    private:
-    };
-
-    struct ThreadContext
-    {
-        std::map<VulkanDevice::QueueProperties::Index, CommandPoolContext> commandPools;
-        void initialize(VkDevice device, const VulkanDevice::QueueIndices& queueIndices);
-        void release(VkDevice device);
-    };
-
-    struct Frame
-    {
-        ArenaAllocator<R_KB(4), false, 0>                               scratch;
-        ArenaAllocator<R_KB(4), false, 0>                               frameMemory;
-        FrameStream                                                     frameStream;
-        std::map<U64, ThreadContext>                                    threadContexts;
-        VkFence                                                         fence;
-        VkSemaphore                                                     frameSemaphore;
-        MutexGuard                                                      secondaryCommandBufferMutex;
-        std::map<CommandList::Id, VkCommandBuffer>                      secondaryCommandBufferMap;
-        void                                                            reset(VkDevice device);
-    };
-
-    struct StateTracker
-    {
-        Frame& frame;
-        VkCommandBuffer commandbuffer;
-        CommandPoolContext& commandPoolContext;
-    };
-
-    class VulkanCommandListEncoder
-    {
-    public:
-        VulkanCommandListEncoder(VkDevice device) 
-            : m_device(device) { }
-        VkResult encode(const CommandStreamChunk& chunk, StateTracker& tracker);
-        VkResult operator()(const CommandStreamChunk& chunk, StateTracker& tracker) { return encode(chunk, tracker); }
-    private:
-        void flushBarriers(StateTracker& tracker);
-
-        VkDevice m_device;
-
-        struct PipelineStage
-        {
-            VkPipelineStageFlags srcStageFlags;
-            VkPipelineStageFlags dstStageFlags;
-            
-            bool operator==(const PipelineStage& stage) const 
-            {
-                return (srcStageFlags == stage.srcStageFlags) && (dstStageFlags == stage.dstStageFlags);
-            }
-        
-            bool operator!=(const PipelineStage& stage) const
-            {
-                return !(*this == stage);
-            }
-
-            bool operator()(const PipelineStage& stage) const 
-            {
-                return (*this == stage);
-            }
-        };
-
-        struct PipelineStageHasher
-        {
-            size_t operator()(const PipelineStage& key) const {
-                return ((std::hash<uint32_t>()(key.srcStageFlags) ^ (std::hash<uint32_t>()(key.srcStageFlags) << 1)) >> 1);
-            }
-        };
-
-        struct Barriers
-        {
-            std::vector<VkImageMemoryBarrier> imageBarriers;
-            std::vector<VkBufferMemoryBarrier> bufferBarriers;
-
-            Barriers() : imageBarriers(), bufferBarriers() { }
-        };
-
-        std::unordered_map<PipelineStage, Barriers, PipelineStageHasher>   barriers;
-    };
 
     std::vector<Frame>                  m_frames;
     uint                                m_currentFrameIndex;

@@ -167,7 +167,7 @@ ResultCode VulkanDevice::processFrame(FrameHandle frame)
 {
     if (frame == 0) return RecluseResult_NullPtrExcept;
     
-    VulkanFrameProcess::FrameStream* stream = reinterpret_cast<VulkanFrameProcess::FrameStream*>(frame);
+    FrameStream* stream = reinterpret_cast<FrameStream*>(frame);
     UPtr address = stream->baseAddress;
     const UPtr endAddress = address + stream->sizeBytes;
 

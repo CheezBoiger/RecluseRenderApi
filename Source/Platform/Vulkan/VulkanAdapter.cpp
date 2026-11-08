@@ -1,6 +1,7 @@
 //
 #include "VulkanAdapter.hpp"
 #include "VulkanDevice.hpp"
+#include "VulkanContext.hpp"
 #include "SupportGraph.hpp"
 
 #include <Recluse/Messaging.hpp>
@@ -248,7 +249,9 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
             (VK_KHR_MAINTENANCE1_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_SWAPCHAIN_EXTENSION_NAME, SupportGraph::Extension::Device)
-            (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance);
+            (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance)
+            (VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, SupportGraph::Extension::Device)
+            (VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, SupportGraph::Extension::Device);
 
         // Graph link dependencies
         graph
@@ -308,7 +311,16 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
 
             (VK_KHR_16BIT_STORAGE_EXTENSION_NAME, { 
                 { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
-                { VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, true } });
+                { VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, true } })
+
+            (VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, {
+                { VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, true },
+                { VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, true }
+            })
+
+            (VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, { 
+                { VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME, true }
+            });
 
         initialExt.push_back(VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
@@ -335,6 +347,11 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
         if (description.enableSamplerFeedback)
         {
             initialExt.push_back(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME);
+        }
+
+        if (m_context->getApiVersion() < VK_MAKE_API_VERSION(0, 1, 3, 0)) 
+        {
+            initialExt.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
         }
 
         requestedExtensions = graph.queryAllExtensions(initialExt, SupportGraph::Extension::Device);

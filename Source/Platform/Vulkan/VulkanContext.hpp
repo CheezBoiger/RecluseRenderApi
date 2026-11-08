@@ -17,7 +17,7 @@ class VulkanAdapter;
 class RecluseRenderApi_PUBLIC_API VulkanContext : public Context
 {
 public:
-    VulkanContext(const Description& description);
+    VulkanContext(const Description& description, uint apiVersion = R_VULKAN_DEFAULT_VERSION());
     ~VulkanContext();
 
     void            initialize(const Description& description);
@@ -31,6 +31,9 @@ public:
     Bool            isValid() const override;
 
     uint32_t        getApiVersion() const { return m_vulkanApiVersion; }
+    uint32_t        getApiVersionMajor() const { return VK_VERSION_MAJOR(m_vulkanApiVersion); }
+    uint32_t        getApiVersionMinor() const { return VK_VERSION_MINOR(m_vulkanApiVersion); }
+    uint32_t        getApiVersionPatch() const { return VK_VERSION_PATCH(m_vulkanApiVersion); }
 
     VkSurfaceKHR    makeSurface(WindowHandle handle);
 

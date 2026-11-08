@@ -86,7 +86,7 @@ public:
         CommandInstance instance;
     };
 
-    CommandList(MemoryArena& arena);
+    CommandList(MemoryArena& arena, size_t listSizeBytes = megabytes(8), size_t resourceSizeBytes = megabytes(2));
 
     CommandList(const CommandList&) = delete;
     CommandList& operator=(const CommandList&) = delete;
