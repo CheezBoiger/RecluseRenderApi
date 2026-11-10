@@ -11,15 +11,16 @@
 
 #include <RecluseRenderApi_exports.hpp>
 #include <unordered_map>
+#include <map>
 
 namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
-class VulkanResourceView
-{
-public: 
-};
+typedef uint ViewId;
+typedef U64 VulkanViewType;
+
+struct Descriptor;
 
 // Vulkan resource object. This object manages the structure of a vulkan buffer or image.
 // It does not handle the destruction or creation of the buffer or image itself, nor does it track the state, 
@@ -28,43 +29,52 @@ class VulkanResource : public Resource
 {
 public:
     typedef void* ResourceHandle;
+
     static const uint kNumFirstReservedIdentifers = 16;
 
     static uint makeResourceId();
 
     enum Type : u8 { None, Image, Buffer };
 
-    VulkanResource(ResourceId id = { }) 
+    VulkanResource(VkDevice device = VK_NULL_HANDLE, ResourceId id = { }) 
         : Resource(id)
+        , m_device(device)
         , m_type(None)
         , m_initialResourceState(ResourceState_Unknown)
         , m_memoryAllocation({})
-        , m_handle(nullptr) { }
+        , m_description({})
+        , m_handle(nullptr)     { }
 
-    VulkanResource(VkBuffer buffer, ResourceId id = { }) 
+    VulkanResource(VkDevice device, VkBuffer buffer, ResourceId id = { }) 
         : Resource(id)
+        , m_device(device)
         , m_type(Buffer)
         , m_initialResourceState(ResourceState_Unknown)
         , m_memoryAllocation({})
+        , m_description({})
         , m_handle(reinterpret_cast<ResourceHandle>(buffer)) { }
 
-    VulkanResource(VkImage image, ResourceId id = { })
+    VulkanResource(VkDevice device, VkImage image, ResourceId id = { })
         : Resource(id) 
+        , m_device(device)
         , m_type(Image)
         , m_initialResourceState(ResourceState_Unknown)
         , m_memoryAllocation({})
+        , m_description({})
         , m_handle(reinterpret_cast<ResourceHandle>(image)) { }
     
     virtual                                 ~VulkanResource();
 
     ResourceView                           asView(const ResourceViewDescription& description) override;
     ResourceView                           defaultView() override;
+    VkFormat                               getDefaultViewFormat() const { return Vulkan::getVulkanFormat(getDescription().format); }
 
     void*                                   map(const MapRange& range) override;
     ResultCode                              unmap(const void* ptr, const MapRange& range) override;
 
     ResourceState                           getInitialResourceState() const override;
-    Resource::Description                   getDescription() const override;
+    const Resource::Description&            getDescription() const override;
+    void                                    setDescription(const Resource::Description& description) { m_description = description; }
 
     Bool                                    isBuffer() const { return (m_type == Buffer); }
     Bool                                    isImage() const { return (m_type == Image); }
@@ -72,7 +82,7 @@ public:
     const Allocation&                       getMemory() const { return m_memoryAllocation; }
     
     template<typename VulkanResourceType>
-    VulkanResourceType                      get() { return reinterpret_cast<VulkanResourceType>(m_handle); }
+    VulkanResourceType                      getAs() { return reinterpret_cast<VulkanResourceType>(m_handle); }
 
     ResourceHandle                          raw() const { return m_handle; }
 
@@ -84,12 +94,31 @@ public:
     
     void                                    setInitialResourceState(ResourceState state) { m_initialResourceState = state; }
 private:
-    std::unordered_map<ResourceView, VulkanResourceView>    m_views;
     Type                                                    m_type;
     ResourceHandle                                          m_handle;
     ResourceState                                           m_initialResourceState;
     Allocation                                              m_memoryAllocation;
+    Resource::Description                                   m_description;
+    VkDevice                                                m_device;
+    std::map<ViewId, Descriptor>                            m_views;
+    
 };
+
+typedef struct Descriptor
+{
+    typedef U64 ViewHandle;
+    static_assert(sizeof(ViewHandle) <= sizeof(ResourceView), "ViewHandle should be same size as ResourceView");
+
+    VulkanResource::Type resourceType;
+    ResourceViewType viewType;
+    ViewHandle handle;
+    VulkanResource* resource;
+
+    template<typename Type>
+    Type getAs() const { return reinterpret_cast<Type>(handle); }
+
+    static VkImageAspectFlags       resolveImageAspectFlags(VkFormat originalFormat, ResourceFormat requestedFormat);
+} Descriptor;
 } // Vulkan
 } // RenderApi
 } // Recluse

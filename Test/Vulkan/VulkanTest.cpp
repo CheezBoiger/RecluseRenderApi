@@ -200,11 +200,23 @@ TEST(VulkanTest, CreateDevice)
 
         commandlist1.begin({ Primary, Dynamic });
         commandlist1.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
+        ResourceViewDescription desc = { };
+        desc.type = ResourceViewType_RenderTarget;
+        desc.mipLevelCount = 1;
+        desc.baseMipLevel = 0;
+        desc.baseArrayLayer = 0;
+        desc.arrayLayerCount = 1;
+        desc.dimension = ResourceViewDimension_2D;
+        desc.format = ResourceFormat_R8G8B8A8_Unorm;
+        ResourceView rtv = swapchain->currentBackbuffer()->asView(desc);
+        commandlist1.bindRenderTargets(&rtv, 1);
+        f32 clearColor[4] = { 0.0f, 0.5f, 0.5f, 1.0f };
+        commandlist1.clearRenderTarget(0, clearColor, { 0, 0, (f32)swapchain->currentBackbuffer()->getDescription().width, (f32)swapchain->currentBackbuffer()->getDescription().height });
         bundle.reset();
         bundle.begin({ Bundle, Dynamic });
         bundle.end();
         CommandList* bundles[] = { &bundle };
-        commandlist1.executeBundles(bundles, 1);
+        //commandlist1.executeBundles(bundles, 1);
         commandlist1.transition(swapchain->currentBackbuffer(), ResourceState_Present);
         commandlist1.end();
 

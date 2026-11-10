@@ -148,6 +148,42 @@ VkImageLayout getImageLayout(ResourceState state)
         default: return VK_IMAGE_LAYOUT_UNDEFINED;
     }
 }
+
+VkImageAspectFlags       getImageAspectFlags(VkFormat format)
+{
+    VkImageAspectFlags flags = VK_IMAGE_ASPECT_COLOR_BIT; 
+    // If we have depth and stencil, check here.
+    switch (format)
+    {
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_D32_SFLOAT:
+            flags = VK_IMAGE_ASPECT_DEPTH_BIT;
+            break;
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+            flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            break;
+        case VK_FORMAT_S8_UINT:
+            flags = VK_IMAGE_ASPECT_STENCIL_BIT;
+            break;
+    }
+
+    return flags;
+}
+
+VkImageViewType          getViewTypeFromDimension(ResourceViewDimension dimension)
+{
+    switch (dimension)
+    {
+        case ResourceViewDimension_1D: return VK_IMAGE_VIEW_TYPE_1D;
+        case ResourceViewDimension_2D: return VK_IMAGE_VIEW_TYPE_2D;
+        case ResourceViewDimension_3D: return VK_IMAGE_VIEW_TYPE_3D;
+        case ResourceViewDimension_Cube: return VK_IMAGE_VIEW_TYPE_CUBE;
+        default: return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
+    }
+}
 } // Vulkan
 } // RenderApi 
 } // Recluse

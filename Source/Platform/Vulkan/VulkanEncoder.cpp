@@ -1,5 +1,7 @@
 //
 #include <Recluse/Arch.hpp>
+#include <Recluse/Math/MathCommons.hpp>
+
 #include "VulkanFrameProcess.hpp"
 #include "VulkanSwapchain.hpp"
 
@@ -35,7 +37,8 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
                 beginInfo.flags = chunk.type == Dynamic ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
                 if (chunk.type == Bundle)
                 {
-                    //beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+                    if (isInRenderPass())
+                        beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
                     beginInfo.pInheritanceInfo = &inheritanceInfo;
                     inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
                     inheritanceInfo.renderPass = VK_NULL_HANDLE;
@@ -51,6 +54,8 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
             }
             case CommandOpcode_End:
             {
+                // End the render pass if we are in one.
+                endRenderPass(tracker);
                 // Flush barriers.
                 flushBarriers(tracker);
                 vkEndCommandBuffer(tracker.commandbuffer);
@@ -78,7 +83,7 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
 
                     if (nativeResource->isImage())
                     {
-                        VkImage image = nativeResource->get<VkImage>();
+                        VkImage image = nativeResource->getAs<VkImage>();
                         VkImageMemoryBarrier memoryBarrier = { };
                         memoryBarrier.oldLayout = getImageLayout(transition.oldState);
                         memoryBarrier.newLayout = getImageLayout(transition.newState);
@@ -101,7 +106,7 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
                     }
                     else
                     {
-                        VkBuffer buffer = nativeResource->get<VkBuffer>();
+                        VkBuffer buffer = nativeResource->getAs<VkBuffer>();
                         VkBufferMemoryBarrier memoryBarrier = { };
                         memoryBarrier.sType                 = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
                         memoryBarrier.srcAccessMask         = getDesiredResourceStateAccessMask(transition.oldState);
@@ -145,17 +150,40 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
             }
             case CommandOpcode_ClearRenderTarget:
             {
+                ClearRenderTargetHeader* clearHeader = (ClearRenderTargetHeader*)(address + sizeof(CommandHeader));
+
+                VkClearAttachment clearAttachment = { };
+                clearAttachment.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                clearAttachment.colorAttachment = clearHeader->renderTargetIndex;
+                clearAttachment.clearValue.color.float32[0] = clearHeader->clearColor[0];
+                clearAttachment.clearValue.color.float32[1] = clearHeader->clearColor[1];
+                clearAttachment.clearValue.color.float32[2] = clearHeader->clearColor[2];   
+                clearAttachment.clearValue.color.float32[3] = clearHeader->clearColor[3];   
+
+                VkClearRect clearRect = { };
+                clearRect.baseArrayLayer = 0;
+                clearRect.layerCount = 1;
+                clearRect.rect.offset.x = clearHeader->rect.x;
+                clearRect.rect.offset.y = clearHeader->rect.y;
+                clearRect.rect.extent.width = clearHeader->rect.width;
+                clearRect.rect.extent.height = clearHeader->rect.height;
+
+                vkCmdClearAttachments(tracker.commandbuffer, 1, &clearAttachment, 1, &clearRect);
                 break;
             }
             case CommandOpcode_BindRenderTargets:
             {
                 BindRenderTargetsHeader* renderTargetsHeader = (BindRenderTargetsHeader*)(address + sizeof(CommandHeader));
 
-                VkRenderingInfo renderingInfo = { };
-                renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-                renderingInfo.colorAttachmentCount = renderTargetsHeader->numRenderTargets;
+                if (renderTargetsHeader->numRenderTargets == 0 && renderTargetsHeader->hasDepthStencil == 0)
+                {
+                    continue;
+                }
 
-                vkCmdBeginRendering(tracker.commandbuffer, &renderingInfo);
+                // end any existing render pass.
+                endRenderPass(tracker);
+                flushBarriers(tracker);
+                beginRenderPass(tracker, address);
                 break;
             }
             default:
@@ -168,8 +196,83 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
     return VK_SUCCESS;
 }
 
+void VulkanCommandListEncoder::endRenderPass(StateTracker& tracker)
+{
+    if (isInRenderPass())
+    {
+        vkCmdEndRendering(tracker.commandbuffer);
+        setInRenderPass(false);
+    }
+}
+
+void VulkanCommandListEncoder::beginRenderPass(StateTracker& tracker, UPtr renderpassAddress)
+{
+    BindRenderTargetsHeader* renderTargetsHeader = (BindRenderTargetsHeader*)(renderpassAddress + sizeof(CommandHeader));
+    if (renderTargetsHeader->numRenderTargets == 0 && renderTargetsHeader->hasDepthStencil == 0)
+    {
+        return;
+    }
+    VkRenderingInfo renderingInfo = { };
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderingInfo.colorAttachmentCount = renderTargetsHeader->numRenderTargets;
+    renderingInfo.layerCount = 1;
+    renderingInfo.renderArea.offset.x = 0;
+    renderingInfo.renderArea.offset.y = 0;
+    
+    renderingInfo.flags = VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT;
+
+    VkRenderingAttachmentInfo colorAttachments[8] = { };
+    VkRenderingAttachmentInfo depthAttachment = { };
+    VkRenderingAttachmentInfo stencilAttachment = { };
+    
+    ResourceView* viewId = reinterpret_cast<ResourceView*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
+    VkExtent2D extent = { };
+    for (uint i = 0; i < renderTargetsHeader->numRenderTargets; ++i)
+    {
+        Descriptor* nativeView = reinterpret_cast<Descriptor*>(viewId[i]);
+        colorAttachments[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        colorAttachments[i].imageView = nativeView->getAs<VkImageView>();
+        colorAttachments[i].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        colorAttachments[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+
+        const Resource::Description& desc = nativeView->resource->getDescription();
+        extent.width = Math::maximum(extent.width, desc.width);
+        extent.height = Math::maximum(extent.height, desc.height);
+    }
+
+    if (renderTargetsHeader->hasDepthStencil)
+    {
+        Descriptor* nativeView = reinterpret_cast<Descriptor*>(&viewId[renderTargetsHeader->numRenderTargets]);
+        depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        depthAttachment.imageView = nativeView->getAs<VkImageView>();
+        depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        stencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+        stencilAttachment.imageView = nativeView->getAs<VkImageView>();
+        stencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        stencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        stencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        renderingInfo.pDepthAttachment = &depthAttachment;
+        renderingInfo.pStencilAttachment = &stencilAttachment;
+
+        const Resource::Description& desc = nativeView->resource->getDescription();
+        extent.width = Math::maximum(extent.width, desc.width);
+        extent.height = Math::maximum(extent.height, desc.height);
+    }
+
+    renderingInfo.renderArea.extent = extent;
+    renderingInfo.pColorAttachments = colorAttachments;
+
+    vkCmdBeginRendering(tracker.commandbuffer, &renderingInfo);
+    setInRenderPass(true);
+}
+
 void VulkanCommandListEncoder::flushBarriers(StateTracker& tracker)
 {
+    endRenderPass(tracker);
+
     for (auto& it : barriers)
     {
         PipelineStage stage = it.first;

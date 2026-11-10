@@ -25,6 +25,8 @@ namespace Vulkan {
 extern VkFormat                 getVulkanFormat(ResourceFormat format);
 extern ResourceFormat           getResourceFormat(VkFormat format);
 extern VkImageLayout            getImageLayout(ResourceState state);
+extern VkImageViewType          getViewTypeFromDimension(ResourceViewDimension dimension);
+extern VkImageAspectFlags       getImageAspectFlags(VkFormat format);
 
 static VkAccessFlags getDesiredResourceStateAccessMask(ResourceState state)
 {

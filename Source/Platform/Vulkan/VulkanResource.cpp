@@ -1,6 +1,7 @@
 // 
 #include "VulkanResource.hpp"
 #include <Recluse/Threading/Threading.hpp>
+#include <Recluse/Serialization/Hasher.hpp>
 
 namespace Recluse {
 namespace RenderApi {
@@ -54,6 +55,15 @@ VkMemoryRequirements2 VulkanResource::queryDeviceImageMemoryRequirements(VkDevic
 
 VulkanResource::~VulkanResource()
 {
+    for (const auto& it : m_views)
+    {
+        if (it.second.resourceType == VulkanResource::Image)
+        {
+            VkImageView view = it.second.getAs<VkImageView>();
+            vkDestroyImageView(m_device, view, nullptr);
+        }
+    }
+    m_views.clear();
 }
 
 void* VulkanResource::map(const MapRange& range)
@@ -68,7 +78,44 @@ ResultCode VulkanResource::unmap(const void* ptr, const MapRange& range)
 
 ResourceView VulkanResource::asView(const ResourceViewDescription& description)
 {
-    return 0;
+    ViewId id = recluseHash32(&description, sizeof(const ResourceViewDescription));
+    auto it = m_views.find(id);
+
+    if (it == m_views.end())
+    {
+        if (isImage())
+        {
+            VkImageViewCreateInfo viewCi = { };
+            viewCi.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            viewCi.format = Vulkan::getVulkanFormat(description.format);
+            viewCi.viewType = Vulkan::getViewTypeFromDimension(description.dimension);
+            viewCi.image = getAs<VkImage>();
+            viewCi.flags = 0;
+            viewCi.pNext = nullptr;
+            viewCi.components.r = VK_COMPONENT_SWIZZLE_R;
+            viewCi.components.g = VK_COMPONENT_SWIZZLE_G;
+            viewCi.components.b = VK_COMPONENT_SWIZZLE_B;
+            viewCi.components.a = VK_COMPONENT_SWIZZLE_A;
+            viewCi.subresourceRange.aspectMask = Descriptor::resolveImageAspectFlags(getDefaultViewFormat(), description.format);
+            viewCi.subresourceRange.levelCount = description.mipLevelCount;
+            viewCi.subresourceRange.baseMipLevel = description.baseMipLevel;
+            viewCi.subresourceRange.baseArrayLayer = description.baseArrayLayer;
+            viewCi.subresourceRange.layerCount = description.arrayLayerCount;
+            VkImageView view = VK_NULL_HANDLE;
+            vkCreateImageView(m_device, &viewCi, nullptr, &view);
+            
+            Descriptor viewId = { };
+            viewId.resourceType = VulkanResource::Image;
+            viewId.viewType = description.type;
+            viewId.handle = reinterpret_cast<Descriptor::ViewHandle>(view);
+            viewId.resource = this;
+
+            m_views.insert(std::make_pair(id, viewId));
+            it = m_views.find(id);
+        }
+    }
+    
+    return reinterpret_cast<ResourceView>(&it->second);
 }
 
 ResourceView VulkanResource::defaultView()
@@ -81,15 +128,30 @@ ResourceState VulkanResource::getInitialResourceState() const
     return m_initialResourceState;
 }
 
-Resource::Description VulkanResource::getDescription() const
+const Resource::Description& VulkanResource::getDescription() const
 {
-    return { };
+    return m_description;
 }
 
 uint VulkanResource::makeResourceId()
 {
     ScopedLock _(resourceCounterMutex);
     return kNumFirstReservedIdentifers + kResourceCounter++;
+}
+
+VkImageAspectFlags Descriptor::resolveImageAspectFlags(VkFormat originalFormat, ResourceFormat requestedFormat)
+{
+    VkImageAspectFlags aspect = Vulkan::getImageAspectFlags(originalFormat);
+    switch (requestedFormat)
+    {
+        case Recluse::RenderApi::ResourceFormat_R24_Unorm_X8_Typeless:
+            aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
+            break;
+        case Recluse::RenderApi::ResourceFormat_X24_Typeless_S8_Uint:
+            aspect = VK_IMAGE_ASPECT_STENCIL_BIT;
+            break;
+    }
+    return aspect;
 }
 } // Vulkan
 } // RenderApi 

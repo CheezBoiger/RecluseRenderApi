@@ -143,13 +143,12 @@ void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderT
     ResourceView* viewId = reinterpret_cast<ResourceView*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
     for (uint i = 0; i < numRenderTargets; ++i)
     {
-        *viewId = renderTargets[i];
-        ++viewId;
+        viewId[i] = renderTargets[i];
     }
 
     if (hasDepthStencil)
     {
-        *viewId = depthStencil;
+        viewId[numRenderTargets] = depthStencil;
     }
 
     m_primaryChunk.sizeBytes += sizeBytes;

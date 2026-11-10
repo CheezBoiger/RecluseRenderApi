@@ -99,13 +99,22 @@ class VulkanCommandListEncoder
 {
 public:
     VulkanCommandListEncoder(VkDevice device) 
-        : m_device(device) { }
+        : m_device(device)
+        , m_isInRenderPass(false)
+    { }
+
     VkResult encode(const CommandStreamChunk& chunk, StateTracker& tracker);
     VkResult operator()(const CommandStreamChunk& chunk, StateTracker& tracker) { return encode(chunk, tracker); }
 private:
     void flushBarriers(StateTracker& tracker);
 
+    void endRenderPass(StateTracker& tracker);
+    void beginRenderPass(StateTracker& tracker, UPtr renderpassAddress);
+    Bool isInRenderPass() const { return m_isInRenderPass; }
+    void setInRenderPass(Bool inRenderPass) { m_isInRenderPass = inRenderPass; }
+
     VkDevice m_device;
+    Bool m_isInRenderPass;
 
     struct PipelineStage
     {

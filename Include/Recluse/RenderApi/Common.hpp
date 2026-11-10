@@ -187,9 +187,10 @@ struct ResourceViewDescription
     ResourceViewType        type;
     ResourceViewDimension   dimension;
     ResourceFormat          format;
-    uint                    width;
-    uint                    height;
-    uint                    depthOrArraySize;
+    u8                      baseMipLevel;
+    u8                      mipLevelCount;
+    u16                     baseArrayLayer;
+    u16                     arrayLayerCount;
 };
 
 enum CommandQueueType

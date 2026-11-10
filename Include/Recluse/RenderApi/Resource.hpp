@@ -35,21 +35,21 @@ public:
     Resource(ResourceId id) : m_id(id) { }
     virtual ~Resource() { }
 
-    virtual void*                   map(const MapRange& range) = 0;
-    virtual ResultCode              unmap(const void* ptr, const MapRange& range) = 0;
+    virtual void*                               map(const MapRange& range) = 0;
+    virtual ResultCode                          unmap(const void* ptr, const MapRange& range) = 0;
     
-    virtual ResourceView            asView(const ResourceViewDescription& desc) = 0;
-    virtual ResourceView            defaultView() = 0;
+    virtual ResourceView                        asView(const ResourceViewDescription& desc) = 0;
+    virtual ResourceView                        defaultView() = 0;
 
-    ResourceId                      getId() const { return m_id; }
+    ResourceId                                  getId() const { return m_id; }
 
-    virtual ResourceState           getInitialResourceState() const = 0;
+    virtual ResourceState                       getInitialResourceState() const = 0;
     
-    RecluseRenderApi_PUBLIC_API ResourceState getResourceState() const;
+    RecluseRenderApi_PUBLIC_API ResourceState   getResourceState() const;
 
-    virtual Resource::Description   getDescription() const = 0;
+    virtual const Resource::Description&        getDescription() const = 0;
 
-    ResourceView                  operator()(const ResourceViewDescription& desc)
+    ResourceView                                operator()(const ResourceViewDescription& desc)
     {
         return asView(desc);
     }

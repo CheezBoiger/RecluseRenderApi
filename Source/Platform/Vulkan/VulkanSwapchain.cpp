@@ -266,9 +266,15 @@ void VulkanSwapchain::initializeSwapchainResources()
     for (uint i = 0; i < m_imageResources.size(); ++i)
     {
         // Make the handlers.
-        m_imageResources[i] = std::move(VulkanResource(images[i], { i }));
+        m_imageResources[i] = std::move(VulkanResource(m_device, images[i], { i }));
         // The resource database isn't aware of the new resource state transition. so we will need to figure out 
         // a way to reset it.
+        Resource::Description desc = { };
+        desc.width = m_description.renderWidth;
+        desc.height = m_description.renderHeight;
+        desc.format = m_description.format;
+        desc.type = ResourceType_Texture2D;
+        m_imageResources[i].setDescription(desc);
     }
 }
 

@@ -326,6 +326,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
         initialExt.push_back(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
+        initialExt.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
 
         if (description.enableMeshShaders)
         {
@@ -347,11 +348,6 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
         if (description.enableSamplerFeedback)
         {
             initialExt.push_back(VK_NV_SHADER_IMAGE_FOOTPRINT_EXTENSION_NAME);
-        }
-
-        if (m_context->getApiVersion() < VK_MAKE_API_VERSION(0, 1, 3, 0)) 
-        {
-            initialExt.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
         }
 
         requestedExtensions = graph.queryAllExtensions(initialExt, SupportGraph::Extension::Device);
@@ -410,11 +406,18 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     Features features;
 
     const Bool supportsTimelineSemaphore = findSupportDeviceExtension(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, requestedExtensions.data(), requestedExtensions.size());
+    const Bool supportsDynamicRendering = findSupportDeviceExtension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, requestedExtensions.data(), requestedExtensions.size());
 
     if (supportsTimelineSemaphore)
     {
         VkPhysicalDeviceTimelineSemaphoreFeatures* timeline = features.add<VkPhysicalDeviceTimelineSemaphoreFeatures>();
         timeline->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+    }
+
+    if (supportsDynamicRendering)
+    {
+        VkPhysicalDeviceDynamicRenderingFeatures* dynamicRendering = features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
+        dynamicRendering->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
     }
 
     if (description.enableMeshShaders)
@@ -429,6 +432,12 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     {
         VkPhysicalDeviceTimelineSemaphoreFeatures* timeline = features.find<VkPhysicalDeviceTimelineSemaphoreFeatures>();
         R_ASSERT(timeline->timelineSemaphore == true);
+    }
+    
+    if (supportsDynamicRendering)
+    {
+        VkPhysicalDeviceDynamicRenderingFeatures* dynamicRendering = features.find<VkPhysicalDeviceDynamicRenderingFeatures>();
+        R_ASSERT(dynamicRendering->dynamicRendering == true);
     }
 
     if (description.enableMeshShaders)
