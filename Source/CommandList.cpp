@@ -151,6 +151,11 @@ void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderT
         viewId[numRenderTargets] = depthStencil;
     }
 
+    if (numRenderTargets + hasDepthStencil > 0)
+        m_isInRenderPass = true;
+    else
+        m_isInRenderPass = false;
+
     m_primaryChunk.sizeBytes += sizeBytes;
 }
 
@@ -257,6 +262,12 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
     for (uint i = 0; i < numBundles; ++i)
     {
         CommandList* bundleList = bundles[i];
+
+        if (m_isInRenderPass)
+            bundleList->m_primaryChunk.flags |= CommandStreamChunk::Flag_InRenderPass;
+        else
+            bundleList->m_primaryChunk.flags &= ~CommandStreamChunk::Flag_InRenderPass;
+
         CommandList** datList = reinterpret_cast<CommandList**>(offset + sizeof(CommandList*) * i);
         *datList = bundleList;
         m_chunks.push_back(bundleList->getPrimaryChunk());
@@ -311,6 +322,7 @@ void CommandList::reset()
         m_initialTransitions.clear();
         m_chunks.clear();
         m_status = CommandListStatus_Reset;
+        m_isInRenderPass = false;
 
         m_primaryChunk.baseAddress = 0;
         m_primaryChunk.sizeBytes = 0;
@@ -331,6 +343,7 @@ CommandList::CommandList(CommandList&& other)
     , m_resourceAllocator(std::move(other.m_resourceAllocator))
     , m_primaryChunk(other.m_primaryChunk)
     , m_chunks(std::move(other.m_chunks))
+    , m_isInRenderPass(other.m_isInRenderPass)
 {
     other.m_id                          = kBadId;
     other.m_status                      = CommandListStatus_Reset;
@@ -349,6 +362,7 @@ CommandList& CommandList::operator=(CommandList&& other)
         m_resourceAllocator     = std::move(other.m_resourceAllocator);
         m_primaryChunk          = other.m_primaryChunk;
         m_chunks                = std::move(other.m_chunks);
+        m_isInRenderPass        = other.m_isInRenderPass;
         other.m_id              = kBadId;
         other.m_status          = CommandListStatus_Reset;
         other.m_primaryChunk.baseAddress    = 0;

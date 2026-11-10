@@ -33,12 +33,18 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
             {
                 VkCommandBufferBeginInfo beginInfo = { };
                 VkCommandBufferInheritanceInfo inheritanceInfo = { };
+                VkCommandBufferInheritanceRenderingInfo renderingInfo = { };
+
                 beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
                 beginInfo.flags = chunk.type == Dynamic ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
                 if (chunk.type == Bundle)
                 {
-                    if (isInRenderPass())
+                    if (chunk.flags & CommandStreamChunk::Flag_InRenderPass)
+                    {
                         beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+                        inheritanceInfo.pNext = &renderingInfo;
+                        renderingInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO;
+                    }
                     beginInfo.pInheritanceInfo = &inheritanceInfo;
                     inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
                     inheritanceInfo.renderPass = VK_NULL_HANDLE;

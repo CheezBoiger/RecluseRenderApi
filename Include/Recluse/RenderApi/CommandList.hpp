@@ -56,11 +56,19 @@ struct LocalResourceState
 // Chunk defines the base and size of a chunk of commands.
 struct CommandStreamChunk
 {
+    enum Flag : u8 {
+        Flag_None = 0,
+        Flag_InRenderPass = (1 << 0),
+    };
+    typedef u8 Flags;
     UPtr                baseAddress    = 0;
     U32                 sizeBytes      = 0;
     u16                 id;                 // Id of the command list that this chunk belongs to.
-    CommandType         type;               // Type of command list that this chunk belongs to.
-    CommandInstance     instance;           // Instance of command list that this chunk belongs to.
+    Flags               flags;              // Flags for the chunk, such as if it is in a render pass or not.
+
+    CommandType         type     : 2;       // Type of command list that this chunk belongs to.
+    CommandInstance     instance : 2;       // Instance of command list that this chunk belongs to.
+    b8                  reserved : 4;       // Reserved for future use.
 };
 
 struct ResourceTransition
@@ -180,8 +188,12 @@ private:
 
     // Chunk defines the overall size of the command list. These are bundles stored.
     std::vector<CommandStreamChunk> m_chunks;
+
     // Render command list id.
     Id m_id;
+
+    Bool m_isInRenderPass : 1; // Whether or not the command list is currently in a render pass.
+    Bool m_reserved : 7; // Reserved for future use.
 
     // status of the command list.
     CommandListStatus m_status;
