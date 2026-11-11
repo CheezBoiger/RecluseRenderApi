@@ -80,6 +80,9 @@ public:
     Bool                                    isImage() const { return (m_type == Image); }
     Bool                                    isValid() const { return (m_handle != nullptr); }
     const Allocation&                       getMemory() const { return m_memoryAllocation; }
+    U32                                     getWidth() const { return m_description.width; }
+    U32                                     getHeight() const { return m_description.height; }
+    ResourceFormat                          getDefaultFormat() const { return m_description.format; }
     
     template<typename VulkanResourceType>
     VulkanResourceType                      getAs() { return reinterpret_cast<VulkanResourceType>(m_handle); }

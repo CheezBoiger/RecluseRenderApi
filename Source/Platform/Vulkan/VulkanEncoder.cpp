@@ -245,9 +245,8 @@ void VulkanCommandListEncoder::beginRenderPass(StateTracker& tracker, UPtr rende
         colorAttachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
         colorAttachments[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
-        const Resource::Description& desc = nativeView->resource->getDescription();
-        extent.width = Math::maximum(extent.width, desc.width);
-        extent.height = Math::maximum(extent.height, desc.height);
+        extent.width = Math::maximum(extent.width, nativeView->resource->getWidth());
+        extent.height = Math::maximum(extent.height, nativeView->resource->getHeight());
     }
 
     if (renderTargetsHeader->hasDepthStencil)
@@ -266,9 +265,8 @@ void VulkanCommandListEncoder::beginRenderPass(StateTracker& tracker, UPtr rende
         renderingInfo.pDepthAttachment = &depthAttachment;
         renderingInfo.pStencilAttachment = &stencilAttachment;
 
-        const Resource::Description& desc = nativeView->resource->getDescription();
-        extent.width = Math::maximum(extent.width, desc.width);
-        extent.height = Math::maximum(extent.height, desc.height);
+        extent.width = Math::maximum(extent.width, nativeView->resource->getWidth());
+        extent.height = Math::maximum(extent.height, nativeView->resource->getHeight());
     }
 
     renderingInfo.renderArea.extent = extent;
