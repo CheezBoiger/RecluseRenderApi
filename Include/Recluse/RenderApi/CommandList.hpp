@@ -69,6 +69,7 @@ struct CommandStreamChunk
     CommandType         type     : 2;       // Type of command list that this chunk belongs to.
     CommandInstance     instance : 2;       // Instance of command list that this chunk belongs to.
     b8                  reserved : 4;       // Reserved for future use.
+    UPtr                inheritanceDataAddress = 0;  // Address of the inheritance data for this chunk, if it is a bundle.
 };
 
 struct ResourceTransition
@@ -114,6 +115,12 @@ public:
     void drawIndexedInstanced(uint indexCount, uint instanceCount, uint firstIndex, I32 baseVertex, uint firstInstance);
     void drawInstanced(uint vertexCount, uint instanceCount, uint baseVertex, uint baseInstance);
     void dispatch(U32 x, U32 y, U32 z);
+    void dispatchMesh(U32 x, U32 y, U32 z);
+
+    void drawIndexedInstancedIndirect(Resource* buffer, U64 offset, U32 drawCount, U32 stride);
+    void drawInstancedIndirect(Resource* buffer, U64 offset, U32 drawCount, U32 stride);
+    void dispatchIndirect(Resource* buffer, U64 offset);
+    void dispatchMeshIndirect(Resource* buffer, U64 offset);
 
     // Bind render targets to the command list. This will bind the render targets to the command list, and will also bind the depth stencil if provided.
     void bindRenderTargets(ResourceView* renderTargets, U32 numRenderTargets, ResourceView depthStencil = 0);

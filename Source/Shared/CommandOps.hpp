@@ -105,6 +105,16 @@ struct BindPipelineCommand
     PipelineId      pipeline;
 };
 
+struct BeginBundleCommand
+{
+    // For inheriting bundles, we need to know if the command list is a bundle or not. 
+    // If it is a bundle, we need to know if it is inheriting from a primary command list or not.
+    ResourceFormat formats[8];
+    ResourceFormat depthStencilFormat;
+    u8 numRenderTargets : 7;
+    u8 hasDepthStencil : 1;
+};
+
 struct DrawIndexedInstancedCommand
 {
     U32             indexCount;

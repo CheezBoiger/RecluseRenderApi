@@ -114,6 +114,7 @@ typedef struct Descriptor
 
     VulkanResource::Type resourceType;
     ResourceViewType viewType;
+    ResourceFormat format;
     ViewHandle handle;
     VulkanResource* resource;
 

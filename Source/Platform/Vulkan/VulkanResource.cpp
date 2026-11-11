@@ -108,6 +108,7 @@ ResourceView VulkanResource::asView(const ResourceViewDescription& description)
             viewId.resourceType = VulkanResource::Image;
             viewId.viewType = description.type;
             viewId.handle = reinterpret_cast<Descriptor::ViewHandle>(view);
+            viewId.format = description.format;
             viewId.resource = this;
 
             m_views.insert(std::make_pair(id, viewId));

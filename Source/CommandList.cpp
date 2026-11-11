@@ -42,14 +42,16 @@ void CommandList::begin(const CommandList::BeginDescription& beginDescription)
     if (m_primaryChunk.sizeBytes != 0) return;
     if (m_status == CommandListStatus_Recording) return;
 
-    CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate(sizeof(CommandHeader), 1u);
+    const size_t sizeBytes = sizeof(CommandHeader);
+
+    CommandHeader* command = (CommandHeader*)m_commandAllocator.allocate(sizeBytes, 1u);
     command->opcode = CommandOpcode_Begin;
     command->size = 0;
 
     // Make a chunk and store for processing.
     CommandStreamChunk chunk;
     chunk.baseAddress   = (UPtr)command;
-    chunk.sizeBytes     = sizeof(CommandHeader);
+    chunk.sizeBytes     = sizeBytes;
     chunk.instance      = beginDescription.instance;
     chunk.type          = beginDescription.type;
     chunk.id            = m_id;
@@ -82,6 +84,18 @@ void CommandList::dispatch(U32 x, U32 y, U32 z)
     command->y = y;
     command->z = z;
 
+    m_primaryChunk.sizeBytes += CommandHeader::dataSize<DispatchCommand>();
+}
+
+void CommandList::dispatchMesh(U32 x, U32 y, U32 z)
+{
+    CommandHeader* header = (CommandHeader*)m_commandAllocator.allocate(CommandHeader::dataSize<DispatchCommand>(), 1u);
+    header->opcode = CommandOpcode_DispatchMesh;
+    header->size = sizeof(DispatchCommand);
+    DispatchCommand* command = CommandHeader::dataOffset<DispatchCommand>(header);
+    command->x = x;
+    command->y = y;
+    command->z = z;
     m_primaryChunk.sizeBytes += CommandHeader::dataSize<DispatchCommand>();
 }
 
@@ -272,7 +286,10 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
 
         // Store the copy with the in render pass flag.
         if (isInRenderPass())
+        {
             m_chunks.back().flags |= CommandStreamChunk::Flag_InRenderPass;
+            m_chunks.back().inheritanceDataAddress = m_renderPassAddress;
+        }
         else
             m_chunks.back().flags &= ~CommandStreamChunk::Flag_InRenderPass;
     }

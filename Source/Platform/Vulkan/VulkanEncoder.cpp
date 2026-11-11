@@ -34,6 +34,7 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
                 VkCommandBufferBeginInfo beginInfo = { };
                 VkCommandBufferInheritanceInfo inheritanceInfo = { };
                 VkCommandBufferInheritanceRenderingInfo renderingInfo = { };
+                VkFormat formats[8] = { };
 
                 beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
                 beginInfo.flags = chunk.type == Dynamic ? VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT : 0;
@@ -44,9 +45,33 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
                         beginInfo.flags |= VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
                         inheritanceInfo.pNext = &renderingInfo;
                         renderingInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_RENDERING_INFO;
+                        BindRenderTargetsHeader* rtHeader = reinterpret_cast<BindRenderTargetsHeader*>(chunk.inheritanceDataAddress);
+                        renderingInfo.colorAttachmentCount = rtHeader->numRenderTargets;
+                        renderingInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+                        ResourceView* views = reinterpret_cast<ResourceView*>(reinterpret_cast<UPtr>(rtHeader) + sizeof(BindRenderTargetsHeader));
+                        for (uint i = 0; i < rtHeader->numRenderTargets; ++i)
+                        {
+                            ResourceView view = views[i];
+                            Descriptor* descriptor = reinterpret_cast<Descriptor*>(view);
+                            formats[i] = Vulkan::getVulkanFormat(descriptor->format);
+                        }
+
+                        renderingInfo.pColorAttachmentFormats = formats;
+                        if (rtHeader->hasDepthStencil)
+                        {
+                            ResourceView depthStencilView = views[rtHeader->numRenderTargets];
+                            Descriptor* descriptor = reinterpret_cast<Descriptor*>(depthStencilView);
+                            renderingInfo.depthAttachmentFormat = Vulkan::getVulkanFormat(descriptor->format);
+                            renderingInfo.stencilAttachmentFormat = Vulkan::getVulkanFormat(descriptor->format);
+                        }
                     }
+
                     beginInfo.pInheritanceInfo = &inheritanceInfo;
                     inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
+                    // We need to inherit the render pass and framebuffer if we are in a render pass.
+                    // Since we use dynamic rendering, we can just set the render pass and framebuffer to null, 
+                    // but we will still need to provide the formats of the render targets and depth stencil if we are in a render pass.
                     inheritanceInfo.renderPass = VK_NULL_HANDLE;
                     inheritanceInfo.subpass = 0;
                     inheritanceInfo.framebuffer = VK_NULL_HANDLE;
@@ -55,6 +80,7 @@ VkResult VulkanCommandListEncoder::encode(const CommandStreamChunk& chunk, State
                 {
                     beginInfo.pInheritanceInfo = nullptr;
                 }
+
                 vkBeginCommandBuffer(tracker.commandbuffer, &beginInfo);
                 break;
             }
