@@ -23,6 +23,7 @@ CommandList::CommandList(MemoryArena& arena, size_t listSizeBytes, size_t resour
     : m_id(kBadId)
     , m_status(CommandListStatus_Reset)
     , m_arena(arena)
+    , m_renderPassAddress(0ull)
 {
     m_id = getId();
     UPtr ptr = (UPtr)m_arena.allocate(listSizeBytes);
@@ -139,6 +140,8 @@ void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderT
     BindRenderTargetsHeader* renderTargetsHeader = CommandHeader::dataOffset<BindRenderTargetsHeader>(header);
     renderTargetsHeader->numRenderTargets = numRenderTargets;
     renderTargetsHeader->hasDepthStencil = hasDepthStencil;
+    renderTargetsHeader->flags = 0;
+    renderTargetsHeader->reserved = 0;
 
     ResourceView* viewId = reinterpret_cast<ResourceView*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
     for (uint i = 0; i < numRenderTargets; ++i)
@@ -152,9 +155,9 @@ void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderT
     }
 
     if (numRenderTargets + hasDepthStencil > 0)
-        m_isInRenderPass = true;
+        m_renderPassAddress = reinterpret_cast<UPtr>(renderTargetsHeader);
     else
-        m_isInRenderPass = false;
+        m_renderPassAddress = 0ull;
 
     m_primaryChunk.sizeBytes += sizeBytes;
 }
@@ -263,14 +266,21 @@ void CommandList::executeBundles(CommandList** bundles, uint numBundles)
     {
         CommandList* bundleList = bundles[i];
 
-        if (m_isInRenderPass)
-            bundleList->m_primaryChunk.flags |= CommandStreamChunk::Flag_InRenderPass;
-        else
-            bundleList->m_primaryChunk.flags &= ~CommandStreamChunk::Flag_InRenderPass;
-
         CommandList** datList = reinterpret_cast<CommandList**>(offset + sizeof(CommandList*) * i);
         *datList = bundleList;
         m_chunks.push_back(bundleList->getPrimaryChunk());
+
+        // Store the copy with the in render pass flag.
+        if (isInRenderPass())
+            m_chunks.back().flags |= CommandStreamChunk::Flag_InRenderPass;
+        else
+            m_chunks.back().flags &= ~CommandStreamChunk::Flag_InRenderPass;
+    }
+
+    if (isInRenderPass())
+    {
+        BindRenderTargetsHeader* rtHeader = reinterpret_cast<BindRenderTargetsHeader*>(m_renderPassAddress);
+        rtHeader->flags |= BindRenderTargetsHeader::Flag_InheritsBundles;
     }
     
     m_primaryChunk.sizeBytes += sizeBytes;
@@ -322,7 +332,7 @@ void CommandList::reset()
         m_initialTransitions.clear();
         m_chunks.clear();
         m_status = CommandListStatus_Reset;
-        m_isInRenderPass = false;
+        m_renderPassAddress = false;
 
         m_primaryChunk.baseAddress = 0;
         m_primaryChunk.sizeBytes = 0;
@@ -343,7 +353,7 @@ CommandList::CommandList(CommandList&& other)
     , m_resourceAllocator(std::move(other.m_resourceAllocator))
     , m_primaryChunk(other.m_primaryChunk)
     , m_chunks(std::move(other.m_chunks))
-    , m_isInRenderPass(other.m_isInRenderPass)
+    , m_renderPassAddress(other.m_renderPassAddress)
 {
     other.m_id                          = kBadId;
     other.m_status                      = CommandListStatus_Reset;
@@ -362,7 +372,7 @@ CommandList& CommandList::operator=(CommandList&& other)
         m_resourceAllocator     = std::move(other.m_resourceAllocator);
         m_primaryChunk          = other.m_primaryChunk;
         m_chunks                = std::move(other.m_chunks);
-        m_isInRenderPass        = other.m_isInRenderPass;
+        m_renderPassAddress     = other.m_renderPassAddress;
         other.m_id              = kBadId;
         other.m_status          = CommandListStatus_Reset;
         other.m_primaryChunk.baseAddress    = 0;

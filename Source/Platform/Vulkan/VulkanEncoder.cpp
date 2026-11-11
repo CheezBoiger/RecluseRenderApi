@@ -225,7 +225,10 @@ void VulkanCommandListEncoder::beginRenderPass(StateTracker& tracker, UPtr rende
     renderingInfo.renderArea.offset.x = 0;
     renderingInfo.renderArea.offset.y = 0;
     
-    renderingInfo.flags = VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT;
+    renderingInfo.flags = 0;
+
+    if (renderTargetsHeader->flags & BindRenderTargetsHeader::Flag_InheritsBundles)
+        renderingInfo.flags |= VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT;
 
     VkRenderingAttachmentInfo colorAttachments[8] = { };
     VkRenderingAttachmentInfo depthAttachment = { };

@@ -143,9 +143,15 @@ struct BindSamplerTableCommand
 
 struct BindRenderTargetsHeader
 {
+    enum Flag : u8 {
+        Flag_None = 0,
+        Flag_InheritsBundles = 1 << 0
+    };
+    typedef u8 Flags;
     u32 numRenderTargets : 7;
     u32 hasDepthStencil : 1;
-    u32 reserved : 24;
+    u32 flags : 8;
+    u32 reserved : 16;
 };
 
 struct Transition

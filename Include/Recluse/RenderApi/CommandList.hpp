@@ -171,6 +171,8 @@ public:
 private:
     friend class FrameProcess;
 
+    Bool isInRenderPass() const { return m_renderPassAddress != 0ull; }
+
     // 256 KB is a good preinitial size, and should be cautiously used for mainly
     // drawcalls. If we exceed so much, it is better to optimize the game itself, in order 
     // to reduce these calls. (batching would be highly beneficial.)
@@ -192,8 +194,8 @@ private:
     // Render command list id.
     Id m_id;
 
-    Bool m_isInRenderPass : 1; // Whether or not the command list is currently in a render pass.
-    Bool m_reserved : 7; // Reserved for future use.
+    // RenderPass address.
+    UPtr m_renderPassAddress;
 
     // status of the command list.
     CommandListStatus m_status;
