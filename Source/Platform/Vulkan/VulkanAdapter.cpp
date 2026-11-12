@@ -250,6 +250,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
             (VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_SWAPCHAIN_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance)
+            (VK_KHR_MAINTENANCE_7_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, SupportGraph::Extension::Device);
 
@@ -327,6 +328,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
         initialExt.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
         initialExt.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+        initialExt.push_back(VK_KHR_MAINTENANCE_7_EXTENSION_NAME);
 
         if (description.enableMeshShaders)
         {
@@ -410,20 +412,18 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
 
     if (supportsTimelineSemaphore)
     {
-        VkPhysicalDeviceTimelineSemaphoreFeatures* timeline = features.add<VkPhysicalDeviceTimelineSemaphoreFeatures>();
-        timeline->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+        features.add<VkPhysicalDeviceTimelineSemaphoreFeatures>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES);
     }
 
     if (supportsDynamicRendering)
     {
-        VkPhysicalDeviceDynamicRenderingFeatures* dynamicRendering = features.add<VkPhysicalDeviceDynamicRenderingFeatures>();
-        dynamicRendering->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+        features.add<VkPhysicalDeviceDynamicRenderingFeatures>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES);
+        features.add<VkPhysicalDeviceMaintenance7FeaturesKHR>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_7_FEATURES_KHR);
     }
 
     if (description.enableMeshShaders)
     {
-        VkPhysicalDeviceMeshShaderFeaturesEXT* meshShader = features.add<VkPhysicalDeviceMeshShaderFeaturesEXT>();
-        meshShader->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT;
+        features.add<VkPhysicalDeviceMeshShaderFeaturesEXT>(VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MESH_SHADER_FEATURES_EXT);
     }
 
     vkGetPhysicalDeviceFeatures2(m_physicalDevice, &features());
@@ -438,6 +438,10 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
     {
         VkPhysicalDeviceDynamicRenderingFeatures* dynamicRendering = features.find<VkPhysicalDeviceDynamicRenderingFeatures>();
         R_ASSERT(dynamicRendering->dynamicRendering == true);
+
+        VkPhysicalDeviceMaintenance7FeaturesKHR* maintenance7 = features.find<VkPhysicalDeviceMaintenance7FeaturesKHR>();
+        R_ASSERT(maintenance7->maintenance7 == true);
+        
     }
 
     if (description.enableMeshShaders)

@@ -155,7 +155,8 @@ struct BindRenderTargetsHeader
 {
     enum Flag : u8 {
         Flag_None = 0,
-        Flag_InheritsBundles = 1 << 0
+        Flag_InheritsBundles = 1 << 0,
+        Flag_ContentsInline = 1 << 1,
     };
     typedef u8 Flags;
     u32 numRenderTargets : 7;

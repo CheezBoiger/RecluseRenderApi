@@ -77,7 +77,7 @@ public:
     }
 
     template<typename FeatureType>
-    FeatureType* add()
+    FeatureType* add(VkStructureType stype = 0)
     {
         std::string name = typeid(FeatureType).name();
         FeatureType* type = nullptr;
@@ -87,6 +87,7 @@ public:
             features.push_back(new FeatureType{});
             featureMap.insert(std::make_pair(name, features.back()));
             type = (FeatureType*)features.back();
+            type->sType = stype;
             type->pNext = physicalDeviceFeatures2.pNext;
             physicalDeviceFeatures2.pNext = type;
         }

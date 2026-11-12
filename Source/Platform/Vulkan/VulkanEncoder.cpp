@@ -250,26 +250,27 @@ void VulkanCommandListEncoder::beginRenderPass(StateTracker& tracker, UPtr rende
     renderingInfo.layerCount = 1;
     renderingInfo.renderArea.offset.x = 0;
     renderingInfo.renderArea.offset.y = 0;
-    
     renderingInfo.flags = 0;
 
     if (renderTargetsHeader->flags & BindRenderTargetsHeader::Flag_InheritsBundles)
         renderingInfo.flags |= VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT;
+    if (renderTargetsHeader->flags & BindRenderTargetsHeader::Flag_ContentsInline)
+        renderingInfo.flags |= VK_RENDERING_CONTENTS_INLINE_BIT_KHR;
 
     VkRenderingAttachmentInfo colorAttachments[8] = { };
     VkRenderingAttachmentInfo depthAttachment = { };
     VkRenderingAttachmentInfo stencilAttachment = { };
     
-    ResourceView* viewId = reinterpret_cast<ResourceView*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
+    RenderPassAttachment* viewId = reinterpret_cast<RenderPassAttachment*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
     VkExtent2D extent = { };
     for (uint i = 0; i < renderTargetsHeader->numRenderTargets; ++i)
     {
-        Descriptor* nativeView = reinterpret_cast<Descriptor*>(viewId[i]);
+        Descriptor* nativeView = reinterpret_cast<Descriptor*>(viewId[i].view);   
         colorAttachments[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         colorAttachments[i].imageView = nativeView->getAs<VkImageView>();
         colorAttachments[i].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachments[i].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        colorAttachments[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachments[i].loadOp = Vulkan::getAttachmentLoadOp(viewId[i].loadOp);
+        colorAttachments[i].storeOp = Vulkan::getAttachmentStoreOp(viewId[i].storeOp);
 
         extent.width = Math::maximum(extent.width, nativeView->resource->getWidth());
         extent.height = Math::maximum(extent.height, nativeView->resource->getHeight());
@@ -277,17 +278,17 @@ void VulkanCommandListEncoder::beginRenderPass(StateTracker& tracker, UPtr rende
 
     if (renderTargetsHeader->hasDepthStencil)
     {
-        Descriptor* nativeView = reinterpret_cast<Descriptor*>(&viewId[renderTargetsHeader->numRenderTargets]);
+        Descriptor* nativeView = reinterpret_cast<Descriptor*>(&viewId[renderTargetsHeader->numRenderTargets].view);
         depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         depthAttachment.imageView = nativeView->getAs<VkImageView>();
         depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        depthAttachment.loadOp = Vulkan::getAttachmentLoadOp(viewId[renderTargetsHeader->numRenderTargets].loadOp);
+        depthAttachment.storeOp = Vulkan::getAttachmentStoreOp(viewId[renderTargetsHeader->numRenderTargets].storeOp);
         stencilAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         stencilAttachment.imageView = nativeView->getAs<VkImageView>();
         stencilAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        stencilAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        stencilAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        stencilAttachment.loadOp = Vulkan::getAttachmentLoadOp(viewId[renderTargetsHeader->numRenderTargets].loadOp);
+        stencilAttachment.storeOp = Vulkan::getAttachmentStoreOp(viewId[renderTargetsHeader->numRenderTargets].storeOp);
         renderingInfo.pDepthAttachment = &depthAttachment;
         renderingInfo.pStencilAttachment = &stencilAttachment;
 

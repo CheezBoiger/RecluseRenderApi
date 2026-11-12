@@ -184,6 +184,28 @@ VkImageViewType          getViewTypeFromDimension(ResourceViewDimension dimensio
         default: return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
     }
 }
+
+VkAttachmentLoadOp       getAttachmentLoadOp(LoadOp loadOp)
+{
+    switch (loadOp)
+    {
+    case LoadOp_Load: return VK_ATTACHMENT_LOAD_OP_LOAD;
+    case LoadOp_Clear: return VK_ATTACHMENT_LOAD_OP_CLEAR;
+    case LoadOp_Discard: 
+    default:
+        return VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    }
+}
+VkAttachmentStoreOp      getAttachmentStoreOp(StoreOp storeOp)
+{
+    switch (storeOp)
+    {
+        case StoreOp_Store: return VK_ATTACHMENT_STORE_OP_STORE;
+        case StoreOp_Discard: 
+        default:
+            return VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    }
+}
 } // Vulkan
 } // RenderApi 
 } // Recluse

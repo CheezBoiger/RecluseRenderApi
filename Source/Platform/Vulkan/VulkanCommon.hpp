@@ -27,6 +27,8 @@ extern ResourceFormat           getResourceFormat(VkFormat format);
 extern VkImageLayout            getImageLayout(ResourceState state);
 extern VkImageViewType          getViewTypeFromDimension(ResourceViewDimension dimension);
 extern VkImageAspectFlags       getImageAspectFlags(VkFormat format);
+extern VkAttachmentLoadOp       getAttachmentLoadOp(LoadOp loadOp);
+extern VkAttachmentStoreOp      getAttachmentStoreOp(StoreOp storeOp);
 
 static VkAccessFlags getDesiredResourceStateAccessMask(ResourceState state)
 {

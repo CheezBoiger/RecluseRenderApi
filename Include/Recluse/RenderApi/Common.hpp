@@ -209,6 +209,26 @@ enum IndexType
     IndexType_Unsigned32
 };
 
+enum LoadOp
+{
+    LoadOp_Discard,
+    LoadOp_Load,
+    LoadOp_Clear,
+};
+
+enum StoreOp
+{
+    StoreOp_Discard,
+    StoreOp_Store,
+};
+
+struct RenderPassAttachment
+{
+    ResourceView    view;
+    LoadOp          loadOp;
+    StoreOp         storeOp;
+    F32             clearColor[4];
+};
 
 struct Viewport 
 {

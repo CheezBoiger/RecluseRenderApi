@@ -142,8 +142,8 @@ void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderT
     const Bool hasDepthStencil = (depthStencil != 0 ? 1 : 0);
 
     const uint dataSizeBytes = sizeof(BindRenderTargetsHeader) +
-        sizeof(ResourceView) * (numRenderTargets) +
-        sizeof(ResourceView) * hasDepthStencil;
+        sizeof(RenderPassAttachment) * (numRenderTargets) +
+        sizeof(RenderPassAttachment) * hasDepthStencil;
 
     const uint sizeBytes = sizeof(CommandHeader) + dataSizeBytes;
 
@@ -154,18 +154,30 @@ void CommandList::bindRenderTargets(ResourceView* renderTargets, uint numRenderT
     BindRenderTargetsHeader* renderTargetsHeader = CommandHeader::dataOffset<BindRenderTargetsHeader>(header);
     renderTargetsHeader->numRenderTargets = numRenderTargets;
     renderTargetsHeader->hasDepthStencil = hasDepthStencil;
-    renderTargetsHeader->flags = 0;
+    renderTargetsHeader->flags = BindRenderTargetsHeader::Flag_ContentsInline;
     renderTargetsHeader->reserved = 0;
 
-    ResourceView* viewId = reinterpret_cast<ResourceView*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
+    RenderPassAttachment* viewId = reinterpret_cast<RenderPassAttachment*>((UPtr)renderTargetsHeader + sizeof(BindRenderTargetsHeader));
     for (uint i = 0; i < numRenderTargets; ++i)
     {
-        viewId[i] = renderTargets[i];
+        viewId[i].view = renderTargets[i];
+        viewId[i].loadOp = LoadOp_Load;
+        viewId[i].storeOp = StoreOp_Store;
+        viewId[i].clearColor[0] = 0.0f;
+        viewId[i].clearColor[1] = 0.0f;
+        viewId[i].clearColor[2] = 0.0f;
+        viewId[i].clearColor[3] = 0.0f;
     }
 
     if (hasDepthStencil)
     {
-        viewId[numRenderTargets] = depthStencil;
+        viewId[numRenderTargets].view = depthStencil;
+        viewId[numRenderTargets].loadOp = LoadOp_Load;
+        viewId[numRenderTargets].storeOp = StoreOp_Store;
+        viewId[numRenderTargets].clearColor[0] = 0.0f;
+        viewId[numRenderTargets].clearColor[1] = 0.0f;
+        viewId[numRenderTargets].clearColor[2] = 0.0f;
+        viewId[numRenderTargets].clearColor[3] = 0.0f;
     }
 
     if (numRenderTargets + hasDepthStencil > 0)
