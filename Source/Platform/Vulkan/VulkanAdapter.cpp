@@ -250,6 +250,7 @@ Device* VulkanAdapter::createDevice(const Device::Description& description)
             (VK_KHR_STORAGE_BUFFER_STORAGE_CLASS_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_SWAPCHAIN_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, SupportGraph::Extension::Instance)
+
             (VK_KHR_MAINTENANCE_7_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, SupportGraph::Extension::Device)
             (VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, SupportGraph::Extension::Device);

@@ -201,7 +201,11 @@ TEST(VulkanTest, CreateDevice)
         commandlist1.reset();
 
         commandlist0.begin({ Primary, Dynamic });
-        commandlist0.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
+
+        commandlist0.end();
+
+        commandlist1.begin({ Primary, Dynamic });
+        commandlist1.transition(swapchain->currentBackbuffer(), ResourceState_RenderTarget);
         ResourceViewDescription desc = { };
         desc.type = ResourceViewType_RenderTarget;
         desc.mipLevelCount = 1;
@@ -211,12 +215,9 @@ TEST(VulkanTest, CreateDevice)
         desc.dimension = ResourceViewDimension_2D;
         desc.format = ResourceFormat_R8G8B8A8_Unorm;
         ResourceView rtv = swapchain->currentBackbuffer()->asView(desc);
-        commandlist0.bindRenderTargets(&rtv, 1);
+        commandlist1.bindRenderTargets(&rtv, 1);
         f32 clearColor[4] = { 0.0f, 0.5f, 0.5f, 1.0f };
-        commandlist0.clearRenderTarget(0, clearColor, { 0, 0, (f32)swapchain->currentBackbuffer()->getDescription().width, (f32)swapchain->currentBackbuffer()->getDescription().height });
-        commandlist0.end();
-
-        commandlist1.begin({ Primary, Dynamic });
+        commandlist1.clearRenderTarget(0, clearColor, { 0, 0, (f32)swapchain->currentBackbuffer()->getDescription().width, (f32)swapchain->currentBackbuffer()->getDescription().height });
         bundle.reset();
         bundle.begin({ Bundle, Dynamic });
         bundle.end();

@@ -12,10 +12,11 @@ namespace Recluse {
 namespace RenderApi {
 namespace Vulkan {
 
-enum AllocationHeapType
+enum HeapType
 {
-    AllocationHeapType_DeviceLocal,
-    AllocationHeapType_HostWrite,
+    HeapType_Unknown,
+    HeapType_Gpu,
+    HeapType_CpuWrite,
 };
 
 struct AllocationInstance
@@ -24,7 +25,7 @@ struct AllocationInstance
     VkDeviceSize        totalHeapSizeBytes;
     U32                 bytesAllocated;
     VkMemoryHeapFlags   flags;
-    AllocationHeapType  heapType;
+    HeapType            heapType;
     U32                 heapIndex;
 };
 
@@ -34,7 +35,7 @@ struct Allocation
     U32                 offsetBytes;
     U32                 sizeBytes;
     U32                 allocatorIndex;
-    AllocationHeapType  allocationType;
+    HeapType            allocationType;
 };
 
 struct AllocationFreeRequest
@@ -68,6 +69,7 @@ private:
     VkDeviceMemory              m_memoryHandle;
     VkDeviceSize                m_totalMemory;
     uint32_t                    m_memoryTypeIndex;
+    HeapType                    m_heapType;
     allocator_t<BuddyStrategy>  m_allocator;
 };
 
